@@ -127,7 +127,7 @@ void adhoc_insertNode(ASTnode* n){
 	// If the parent is full of children, double the children array
 	}else if(parent->countChildren == parent->sizeChildren){
 		parent->sizeChildren *= 2;
-		parent->children = realloc(parent->children, parent->sizeChildren);
+		parent->children = realloc(parent->children, parent->sizeChildren*sizeof(ASTnode*));
 	}
 	// Add the node to its parent
 	parent->children[parent->countChildren++] = n;
@@ -141,6 +141,7 @@ char* adhoc_validate(){
 
 // Generate the target language code
 char* adhoc_generate(){
+// TODO: make some C!
 	return NULL;
 }
 

@@ -33,7 +33,8 @@ main(int argc, char** argv){
 	if(processResult) return yyerror(processResult);
 
 	// Parse the input file/stream
-	yyparse();
+	if(yyparse()) return yyerror("Parse failed");
+	// Clean up parse lookahead
 	yylex_destroy(); // <-- WOW This was hard to find!
 
 	// Validate and optimize the parse tree
@@ -88,18 +89,21 @@ child_type	: T_3BYTE {
 			};
 node_pkg	: T_STRING {
 				int len = strlen($<strVal>$)-2;
+				if(!strcmp($<strVal>$, "\"NULL\"")) len = 0;
 				readNode->package = malloc(len+1);
 				strncpy(readNode->package, ($<strVal>$+1), len);
 				readNode->package[len] = '\0';
 			};
 node_name	: T_STRING {
 				int len = strlen($<strVal>$)-2;
+				if(!strcmp($<strVal>$, "\"NULL\"")) len = 0;
 				readNode->name = malloc(len+1);
 				strncpy(readNode->name, ($<strVal>$+1), len);
 				readNode->name[len] = '\0';
 			};
 node_val	: T_STRING {
 				int len = strlen($<strVal>$)-2;
+				if(!strcmp($<strVal>$, "\"NULL\"")) len = 0;
 				readNode->value = malloc(len+1);
 				strncpy(readNode->value, ($<strVal>$+1), len);
 				readNode->value[len] = '\0';
