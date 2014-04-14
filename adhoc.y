@@ -25,12 +25,15 @@ int yywrap(){
 } 
 
 // Initialize, parse, validate, generate, clean up
-main(int argc, char** argv){
-	char* processResult;
+int main(int argc, char** argv){
+	// A buffer for reporting errors
+	char processResult[80];
+	processResult[0] = '\0';
 
 	// Read in configuration files, and language packs
-	processResult = adhoc_init(argc, argv);
-	if(processResult) return yyerror(processResult);
+	adhoc_init(argc, argv, processResult);
+	if(strlen(processResult)) return yyerror(processResult);
+	if(ADHOC_INFO_ONLY) return 0;
 
 	// Parse the input file/stream
 	if(yyparse()) return yyerror("Parse failed");
@@ -38,12 +41,12 @@ main(int argc, char** argv){
 	yylex_destroy(); // <-- WOW This was hard to find!
 
 	// Validate and optimize the parse tree
-	processResult = adhoc_validate();
-	if(processResult) return yyerror(processResult);
+	adhoc_validate(processResult);
+	if(strlen(processResult)) return yyerror(processResult);
 
 	// Generate the target translation
-	processResult = adhoc_generate();
-	if(processResult) return yyerror(processResult);
+	adhoc_generate(processResult);
+	if(strlen(processResult)) return yyerror(processResult);
 
 	// Clean up
 	return adhoc_free();

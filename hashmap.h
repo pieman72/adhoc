@@ -31,6 +31,17 @@ const hashMap_uint HASHMAP_SIZES[] = {
 	268435455, 536870911, 1073741823, 2147483647
 };
 
+// Hashes a string into a uint
+// Credit to: http://www.cse.yorku.ca/~oz/hash.html - "djb2" algorithm
+hashMap_uint hashMap_hashString(void* v){
+	char* s = (char*) v;
+    hashMap_uint h = 5381,c;
+	while(c = *s++){
+		h = ((h << 5) + h) + c; // h * 33 + c
+	}
+    return h;
+}
+
 // Chooses an appropriate size given the number of hashMap items
 hashMap_uint hashMap_chooseSize(hashMap_uint n){
 	hashMap_uint ret;
@@ -84,6 +95,9 @@ void hashMap_resize(hashMap** h){
 
 // Frees a map struct with a generic destructor function pointer
 void hashMap_destroy(hashMap* h, destruct_func f){
+	// Return if hashmap has not been created
+	if(!h) return;
+
 	// Iterate through the items array and free any that exist
 	if(h->count){
 		hashMap_uint i;
