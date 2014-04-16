@@ -33,6 +33,12 @@ grind: adhoc
 	@valgrind -v --leak-check=full --show-reachable=yes ./adhoc programs/test.adh 2>&1 | grep '\(LEAK SUMMARY\)\|\(All heap blocks were freed\)\|\(ERROR SUMMARY\)' | sed 's/\(0 errors from 0 contexts\|no leaks are possible\)/$(LC3)\1$(NORMAL)/'
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 
+.PHONY: push
+push: commit
+	@echo "$(LC4)-- Commit Prepared, Pushing to GitHub --$(NORMAL)"
+	@git push https://github.com/pieman72/adhoc master
+	@echo "[ $(LC3)OK$(NORMAL) ]\n"
+
 .PHONY: commit
 commit: clean
 	@echo "$(LC1)-- Showing Modified Local Files --$(NORMAL)"
@@ -43,9 +49,6 @@ commit: clean
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 	@echo "$(LC3)-- Files Chosen, Add Message --$(NORMAL)"
 	@git commit
-	@echo "[ $(LC3)OK$(NORMAL) ]\n"
-	@echo "$(LC4)-- Commit Prepared, Pushing to GitHub --$(NORMAL)"
-	@git push https://github.com/pieman72/adhoc master
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 
 .PHONY: update
@@ -58,6 +61,13 @@ update: clean
 diff: clean
 	@echo "$(LC1)-- Showing Local Diff --$(NORMAL)"
 	@git diff | /usr/share/vim/vim72/macros/less.sh
+	@echo "[ $(LC3)OK$(NORMAL) ]\n"
+
+.PHONY: branch
+branch:
+	@echo "$(LC1)-- Create a New Branch --$(NORMAL)"
+	@echo 'Current branch:$(LC4)' `git rev-parse --abbrev-ref HEAD` '$(NORMAL)' | sed 's/master/$(LC1)master/'
+	@read -p "New branch name: " ADHOC_BRANCH_NAME; git checkout -b $$ADHOC_BRANCH_NAME; echo 'Now using: $(LC4)' $$ADHOC_BRANCH_NAME '$(NORMAL)'
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 
 .PHONY: adhoc
