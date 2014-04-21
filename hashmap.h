@@ -164,6 +164,11 @@ void* hashMap_retrieve(hashMap* h, hashMap_uint k){
 	}
 }
 
+// Retrieves an item from a hashMap matching a new item
+void* hashMap_search(hashMap* h, void* v){
+	return hashMap_retrieve(h, h->hash(v));
+}
+
 // Remove one element from the hashMap by its key
 void* hashMap_remove(hashMap* h, hashMap_uint k){
 	// Find the correct index and remove (quadratic resolution)

@@ -161,4 +161,19 @@ const char* adhoc_nodeChildType_names[] = {
 	,"child"
 };
 
+// An abstract syntax tree node for use during parsing
+typedef struct ASTnode {
+	int id;
+	int parentId;
+	nodeType nodeType;
+	nodeWhich which;
+	nodeChildType childType;
+	char* package;
+	char* name;
+	char* value;
+	unsigned short countChildren;
+	unsigned short sizeChildren;
+	struct ASTnode** children;
+} ASTnode;
+
 #endif

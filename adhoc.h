@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include "hashmap.h"
 #include "adhoc_types.h"
+#include "c.h"
 
 // An enumeration of config file sections
 typedef enum {
@@ -26,21 +27,6 @@ void adhoc_destroyItemLocation(void* v){
 	free(i->location);
 	free(i);
 }
-
-// An abstract syntax tree node for use during parsing
-typedef struct ASTnode {
-	int id;
-	int parentId;
-	int nodeType;
-	int which;
-	int childType;
-	char* package;
-	char* name;
-	char* value;
-	unsigned short countChildren;
-	unsigned short sizeChildren;
-	struct ASTnode** children;
-} ASTnode;
 
 // Generic function pointer type for walks of the abstract syntax tree
 typedef void (*walk_func)(ASTnode*, int);
@@ -206,7 +192,7 @@ void adhoc_handleConfigVariable(char* var, char* val, char* errBuf){
 		return;
 	}
 	if(!strcmp(var, "ADHOC_OUPUT_COLOR")){
-		ADHOC_OUPUT_COLOR = (bool) strcmp(val, "true");
+		ADHOC_OUPUT_COLOR = !strcmp(val, "true");
 		return;
 	}
 	sprintf(errBuf, "Unknown config variable: %-40s\n", var);
@@ -325,6 +311,7 @@ void adhoc_init(int argc, char** argv, char* errBuf){
 		}
 	}while(!feof(conf));
 	fclose(conf);
+	free(line);
 
 	// We're ready to parse. Set up the data structures
 	nodeMap = hashMap_create(&adhoc_hashNode, ADHOC_ESTIMATED_NODE_COUNT);
@@ -361,16 +348,16 @@ void adhoc_insertNode(ASTnode* n){
 }
 
 // Validate and optimize the abstract syntax tree
-char* adhoc_validate(){
+void adhoc_validate(char* errBuf){
+	// TODO: Actially validate...
 	adhoc_treeWalk(adhoc_printNode, ASTroot, 0);
-	return NULL;
 }
 
 // Generate the target language code
-char* adhoc_generate(){
+void adhoc_generate(char* errBuf){
 // TODO: make some C!
+lang_c_generate(ASTroot, 0, stdout, nodeMap, errBuf);
 //	ADHOC_TARGET_LANGUAGE
-	return NULL;
 }
 
 // Clean up ADHOC
