@@ -28,9 +28,6 @@ void adhoc_destroyItemLocation(void* v){
 	free(i);
 }
 
-// Generic function pointer type for walks of the abstract syntax tree
-typedef void (*walk_func)(ASTnode*, int);
-
 // Config options
 char* ADHOC_VERSION_NUMBER = "1.0.0";
 char ADHOC_CONFIG_LOCATION[100];
@@ -46,43 +43,6 @@ hashMap* nodeMap;
 // A placeholder node during AST building
 ASTnode* readNode,* ASTroot;
 
-// Allocate memory for a blank node
-ASTnode* adhoc_createBlankNode(){
-	ASTnode* ret = (ASTnode*) malloc(sizeof(ASTnode));
-	ret->package = NULL;
-	ret->name = NULL;
-	ret->value = NULL;
-	ret->countChildren = 0;
-	ret->sizeChildren = 0;
-	ret->children = NULL;
-	return ret;
-}
-
-// Free memory from a node
-void adhoc_destroyNode(void* v){
-	if(!v) return;
-	ASTnode* n = (ASTnode*) v;
-	free(n->package);
-	free(n->name);
-	free(n->value);
-	free(n->children);
-	free(n);
-}
-
-// Determines the lable to use for rendering a node
-const char* adhoc_getNodeLabel(ASTnode* n){
-	if(n->name && strlen(n->name)) return n->name;
-	return adhoc_nodeType_names[n->nodeType];
-}
-
-// Determines the sub-label to use for rendering a node
-const char* adhoc_getNodeSubLabel(ASTnode* n){
-	if(!n->parentId) return n->package;
-	if(n->value && strlen(n->value)) return n->value;
-	if(n->package && strlen(n->package)) return n->package;
-	return adhoc_nodeWhich_names[n->which];
-}
-
 // A walkable simple print function
 void adhoc_printNode(ASTnode* n, int d){
 	char* buf = calloc(20, sizeof(char));
@@ -97,12 +57,11 @@ void adhoc_printNode(ASTnode* n, int d){
 	free(buf);
 }
 
-// Walk the tree with a function to perform on each node
-void adhoc_treeWalk(walk_func f, ASTnode* n, int d){
-	f(n, d);
-	int i;
-	for(i=0; i<n->countChildren; ++i){
-		adhoc_treeWalk(f, n->children[i], d+1);
+// A walkable name checker
+void adhoc_renameNode(ASTnode* n, int d){
+	char* p;
+	while(p = strchr(n->name, ' ')){
+		*p = '_';
 	}
 }
 
@@ -351,12 +310,15 @@ void adhoc_insertNode(ASTnode* n){
 void adhoc_validate(char* errBuf){
 	// TODO: Actially validate...
 	adhoc_treeWalk(adhoc_printNode, ASTroot, 0);
+	adhoc_treeWalk(adhoc_renameNode, ASTroot, 0);
 }
 
 // Generate the target language code
 void adhoc_generate(char* errBuf){
 // TODO: make some C!
-lang_c_generate(ASTroot, 0, stdout, nodeMap, errBuf);
+lang_c_init(ASTroot, stdout, nodeMap, errBuf);
+printf("\n");
+lang_c_gen(ASTroot, stdout, nodeMap, errBuf);
 //	ADHOC_TARGET_LANGUAGE
 }
 

@@ -81,6 +81,19 @@ typedef enum adhoc_nodeChildType {
 	,CHILD			// 9
 } nodeChildType;
 
+// Data types
+typedef enum adhoc_dataType {
+	TYPE_VOID	// 0
+	,TYPE_BOOL	// 1
+	,TYPE_INT	// 2
+	,TYPE_FLOAT	// 3
+	,TYPE_STRNG	// 4
+	,TYPE_ARRAY	// 5
+	,TYPE_HASH	// 6
+	,TYPE_STRCT	// 7
+	,TYPE_ACTN	// 8
+} dataType;
+
 // String names for node types
 const char* adhoc_nodeType_names[] = {
 	"NULL"
@@ -168,6 +181,8 @@ typedef struct ASTnode {
 	nodeType nodeType;
 	nodeWhich which;
 	nodeChildType childType;
+	dataType dataType;
+	bool defined;
 	char* package;
 	char* name;
 	char* value;
@@ -175,5 +190,56 @@ typedef struct ASTnode {
 	unsigned short sizeChildren;
 	struct ASTnode** children;
 } ASTnode;
+
+// Allocate memory for a blank node
+ASTnode* adhoc_createBlankNode(){
+	ASTnode* ret = (ASTnode*) malloc(sizeof(ASTnode));
+	ret->package = NULL;
+	ret->name = NULL;
+	ret->value = NULL;
+	ret->dataType = TYPE_VOID;
+	ret->defined = false;
+	ret->countChildren = 0;
+	ret->sizeChildren = 0;
+	ret->children = NULL;
+	return ret;
+}
+
+// Free memory from a node
+void adhoc_destroyNode(void* v){
+	if(!v) return;
+	ASTnode* n = (ASTnode*) v;
+	free(n->package);
+	free(n->name);
+	free(n->value);
+	free(n->children);
+	free(n);
+}
+
+// Determines the lable to use for rendering a node
+const char* adhoc_getNodeLabel(ASTnode* n){
+	if(n->name && strlen(n->name)) return n->name;
+	return adhoc_nodeType_names[n->nodeType];
+}
+
+// Determines the sub-label to use for rendering a node
+const char* adhoc_getNodeSubLabel(ASTnode* n){
+	if(!n->parentId) return n->package;
+	if(n->value && strlen(n->value)) return n->value;
+	if(n->package && strlen(n->package)) return n->package;
+	return adhoc_nodeWhich_names[n->which];
+}
+
+// Generic function pointer type for walks of the abstract syntax tree
+typedef void (*walk_func)(ASTnode*, int);
+
+// Walk an AST with a function to perform on each node
+void adhoc_treeWalk(walk_func f, ASTnode* n, int d){
+	f(n, d);
+	int i;
+	for(i=0; i<n->countChildren; ++i){
+		adhoc_treeWalk(f, n->children[i], d+1);
+	}
+}
 
 #endif
