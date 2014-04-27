@@ -257,4 +257,12 @@ void adhoc_treeWalk(walk_func f, ASTnode* n, int d){
 	}
 }
 
+// Simple functions for hashing AST nodes
+hashMap_uint adhoc_hashNode(void* n){
+	return (hashMap_uint) ((ASTnode*) n)->id;
+}
+hashMap_uint adhoc_hashParent(void* n){
+	return (hashMap_uint) ((ASTnode*) n)->parentId;
+}
+
 #endif

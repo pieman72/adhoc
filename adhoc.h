@@ -46,7 +46,7 @@ ASTnode* readNode,* ASTroot;
 // A walkable simple print function
 void adhoc_printNode(ASTnode* n, int d){
 	char* buf = calloc(20, sizeof(char));
-	sprintf(buf, "%%-%ds%%d %%s%%s (%%s)\n", d*3);
+	sprintf(buf, "%%-%ds%%2d %%s%%s (%%s)\n", d*3);
 	printf(
 		buf
 		,""
@@ -66,15 +66,9 @@ void adhoc_renameNode(ASTnode* n, int d){
 	}
 }
 
-// Simple functions for hashing AST nodes and other structs
+// Simple function for hashing other structs
 hashMap_uint adhoc_hashItemLocation(void* i){
 	return hashMap_hashString(((itemLocation*) i)->item);
-}
-hashMap_uint adhoc_hashNode(void* n){
-	return (hashMap_uint) ((ASTnode*) n)->id;
-}
-hashMap_uint adhoc_hashParent(void* n){
-	return (hashMap_uint) ((ASTnode*) n)->parentId;
 }
 
 // Functiont to handle command line variables

@@ -22,7 +22,7 @@ void assignScope(ASTnode* v, ASTnode* s){
 	v->scope = s;
 
 	// Only variable declarations need to be added to the parent
-	if(v->which != ASSIGNMENT_EQUAL) return;
+	if(v->which != ASSIGNMENT_EQUAL && v->which != VARIABLE_ASIGN) return;
 
 	// No need to define twice
 	if(v->defined) return;
@@ -39,6 +39,18 @@ void assignScope(ASTnode* v, ASTnode* s){
 	}
 	// Add the node to its parent
 	s->scopeVars[s->countScopeVars++] = v;
+}
+
+// Find the scope where a variable name v was first defined above scope s
+ASTnode* findScope(char* v, ASTnode* s){
+	int i;
+	while(1){
+		for(i=0; i<s->countScopeVars; ++i){
+			if(!strcmp(v, s->scopeVars[i]->name)) return s->scopeVars[i];
+		}
+		if(!s->scope) return NULL;
+		s = s->scope;
+	}
 }
 
 // C names for data types
@@ -359,14 +371,6 @@ void generate_assignment(bool isInit, ASTnode* n, short indent, FILE* outFile, h
 	if(isInit){
 		for(i=0; i<n->countChildren; ++i){
 			initialize(n->children[i], indent, outFile, nodes, errBuf);
-if(n->childType == PARAMETER){ printf("@@%d-%s-%d-%d@@", n->id, n->name, n->children[i]->id, n->children[i]->dataType); }
-			if(!n->defined){
-				n->dataType = n->children[i]->dataType;
-				n->defined = true;
-			}
-		}
-		if(n->childType == PARAMETER){
-			lang_c_printTypeName(n, outFile);
 		}
 	}else{
 		for(i=0; i<n->countChildren; ++i){
@@ -380,14 +384,25 @@ void generate_variable(bool isInit, ASTnode* n, short indent, FILE* outFile, has
 	if(isInit){
 		for(i=0; i<n->countChildren; ++i){
 			initialize(n->children[i], indent, outFile, nodes, errBuf);
-			if(n->which == VARIABLE_ASIGN && !n->defined){
+			if(n->which == VARIABLE_ASIGN && n->dataType == TYPE_VOID){
 				n->dataType = n->children[i]->dataType;
-				n->defined = true;
 			}
+		}
+		if(n->which == VARIABLE_EVAL){
+			ASTnode* def;
+			def = findScope(n->name, scope);
+			if(def) n->dataType = def->dataType;
+		}
+		if(n->childType == PARAMETER){
+			lang_c_printTypeName(n, outFile);
 		}
 	}else{
 		for(i=0; i<n->countChildren; ++i){
 			generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
+		}
+		if(n->childType == PARAMETER){
+			lang_c_printTypeName(n, outFile);
+			fprintf(outFile, " %s", n->name);
 		}
 	}
 }
@@ -408,7 +423,11 @@ void generate_literal(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 }
 
 void initialize(ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
+	// Assign the scope of this node to the current scope
+	// TODO: Later, this should be done during validation
 	if(scope) assignScope(n, scope);
+
+	// Handle different node types
 	switch(n->nodeType){
 		case TYPE_NULL: generate_null(true, n, indent, outFile, nodes, errBuf); break;
 		case ACTION: generate_action(true, false, n, indent, outFile, nodes, errBuf); break;
