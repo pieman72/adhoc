@@ -46,11 +46,12 @@ ASTnode* readNode,* ASTroot;
 // A walkable simple print function
 void adhoc_printNode(ASTnode* n, int d){
 	char* buf = calloc(20, sizeof(char));
-	sprintf(buf, "%%-%ds%%s%%s (%%s)\n", d*3);
+	sprintf(buf, "%%-%ds%%d %%s%%s (%%s)\n", d*3);
 	printf(
 		buf
 		,""
-		,(n->parentId ? (n->countChildren ? "+- " : "-- ") : "## ")
+		,n->id
+		,(n->parentId ? (n->countChildren ? "+-" : "--") : "##")
 		,adhoc_getNodeLabel(n)
 		,adhoc_getNodeSubLabel(n)
 	);
@@ -292,6 +293,7 @@ void adhoc_insertNode(ASTnode* n){
 	// Fetch the node's parent by its id
 	ASTnode* parent;
 	parent = (ASTnode*) hashMap_retrieve(nodeMap, adhoc_hashParent((void*)n));
+	n->parent = parent;
 
 	// If the parent has no children, allocate the children array
 	if(!parent->countChildren){

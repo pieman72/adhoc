@@ -5,12 +5,41 @@
 #include "hashmap.h"
 #include "adhoc_types.h"
 
+// Keep track of the current scope
+ASTnode* scope;
+
+// Maintain a list of all functions that need to be declared at the top level
 ASTnode** functions;
 int countFuncs, sizeFuncs;
 
 // Headers for master functions
 void initialize(ASTnode*, short, FILE*, hashMap*, char*);
 void generate(bool, ASTnode*, short, FILE*, hashMap*, char*);
+
+// Assigns scope of v to s
+void assignScope(ASTnode* v, ASTnode* s){
+	// Set the scope pointer in v
+	v->scope = s;
+
+	// Only variable declarations need to be added to the parent
+	if(v->which != ASSIGNMENT_EQUAL) return;
+
+	// No need to define twice
+	if(v->defined) return;
+	v->defined = true;
+
+	// If s has no scopeVars, allocate the scopeVars array
+	if(!s->countScopeVars){
+		s->scopeVars = malloc(sizeof(ASTnode*));
+		s->sizeScopeVars = 1;
+	// If s is full of scopeVars, double the scopeVars array
+	}else if(s->countScopeVars == s->sizeScopeVars){
+		s->sizeScopeVars *= 2;
+		s->scopeVars = realloc(s->scopeVars, s->sizeScopeVars*sizeof(ASTnode*));
+	}
+	// Add the node to its parent
+	s->scopeVars[s->countScopeVars++] = v;
+}
 
 // C names for data types
 char* lang_c_printTypeName(ASTnode* n, FILE* o){
@@ -64,6 +93,9 @@ void generate_action(bool isInit, bool defin, ASTnode* n, short indent, FILE* ou
 	}
 	switch(n->which){
 	case ACTION_DEFIN:
+		// Set scope to this node
+		scope = n;
+
 		// Leave a comment above the function definition
 		fprintf(outFile, "\n");
 		lang_c_indent(indent, outFile);
@@ -79,8 +111,14 @@ void generate_action(bool isInit, bool defin, ASTnode* n, short indent, FILE* ou
 			if(n->children[i]->childType == PARAMETER){
 				if(i>0) fprintf(outFile, ", ");
 				if(isInit){
+					// Set scope to this node
+					scope = n;
+					// Initialize arguments
 					initialize(n->children[i], -1, outFile, nodes, errBuf);
 				}else{
+					// Set scope to this node
+					scope = n;
+					// Generate arguments
 					generate(false, n->children[i], -1, outFile, nodes, errBuf);
 				}
 			}else{
@@ -100,9 +138,21 @@ void generate_action(bool isInit, bool defin, ASTnode* n, short indent, FILE* ou
 			}
 			functions[countFuncs-1] = n;
 
+			// Close the function signature and handle children
 			fprintf(outFile, ";\n");
 			for(; i<n->countChildren; ++i){
+				// Set scope to this node
+				scope = n;
+				// Initialize children
 				initialize(n->children[i], indent, outFile, nodes, errBuf);
+
+				// Type is determined by type of first returned child
+				// TODO: This will hang on recursion, but I'll jump off that bridge later...
+				if(n->dataType == TYPE_VOID
+						&& n->children[i]->dataType != TYPE_VOID
+						&& n->which == CONTROL_RETRN){
+					n->dataType = n->children[i]->dataType;
+				}
 			}
 
 		// Otherwise we print the full function body
@@ -113,6 +163,9 @@ void generate_action(bool isInit, bool defin, ASTnode* n, short indent, FILE* ou
 			// Open the body, and print its statements
 			fprintf(outFile, "{\n");
 			for(; i<n->countChildren; ++i){
+				// Set scope to this node
+				scope = n;
+				// Generate children
 				generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
 			}
 
@@ -124,7 +177,12 @@ void generate_action(bool isInit, bool defin, ASTnode* n, short indent, FILE* ou
 
 	case ACTION_CALL:
 		// Nothing needs to be done during initialization
-		if(isInit) break;
+		if(isInit){
+			for(i=0; i<n->countChildren; ++i){
+				initialize(n->children[i], -1, outFile, nodes, errBuf);
+			}
+			break;
+		}
 
 		// Indent this function call, and call it
 		lang_c_indent(indent, outFile);
@@ -173,6 +231,9 @@ void generate_control(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 		// Nothing to do on initialization
 		if(isInit){
 			for(i=0; i<n->countChildren; ++i){
+				// Set scope to this node
+				scope = n;
+				// Initialize children
 				initialize(n->children[i], indent, outFile, nodes, errBuf);
 			}
 			break;
@@ -182,35 +243,56 @@ void generate_control(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 		break;
 
 	case CONTROL_LOOP:
-		// Nothing to do on initialization
+		// Nothing to do during initialization
 		if(isInit){
 			for(i=0; i<n->countChildren; ++i){
+				// Set scope to this node
+				scope = n;
+				// Initialize children
 				initialize(n->children[i], indent, outFile, nodes, errBuf);
 			}
 			break;
 		}
 
+		// Open for statement
 		lang_c_indent(indent, outFile);
 		fprintf(outFile, "for(");
+
+		// Find the initialization and print it
 		for(i=0; i<n->countChildren; ++i){
 			if(n->children[i]->childType == INITIALIZATION){
+				// Set scope to this node
+				scope = n;
+				// Generate initialization
 				generate(false, n->children[i], -1, outFile, nodes, errBuf);
 				break;
 			}
 		}
 		fprintf(outFile, "; ");
+
+		// Find the condition and print it
 		for(i=0; i<n->countChildren; ++i){
 			if(n->children[i]->childType == CONDITION){
+				// Set scope to this node
+				scope = n;
+				// Generate condition
 				generate(false, n->children[i], -1, outFile, nodes, errBuf);
 				break;
 			}
 		}
 		fprintf(outFile, "; ){\n");
+
+		// Print all the body elements
 		for(i=0; i<n->countChildren; ++i){
 			if(n->children[i]->childType == INITIALIZATION) continue;
 			if(n->children[i]->childType == CONDITION) continue;
+			// Set scope to this node
+			scope = n;
+			// Generate children
 			generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
 		}
+
+		// Close the for statement
 		lang_c_indent(indent, outFile);
 		fprintf(outFile, "}\n");
 		break;
@@ -219,6 +301,9 @@ void generate_control(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 		// Nothing to do on initialization
 		if(isInit){
 			for(i=0; i<n->countChildren; ++i){
+				// Set scope to this node
+				scope = n;
+				// Initialize children
 				initialize(n->children[i], indent, outFile, nodes, errBuf);
 			}
 			break;
@@ -243,6 +328,9 @@ void generate_control(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 		// Nothing to do on initialization
 		if(isInit){
 			for(i=0; i<n->countChildren; ++i){
+				// Set scope to this node
+				scope = n;
+				// Initialize children
 				initialize(n->children[i], indent, outFile, nodes, errBuf);
 			}
 			break;
@@ -271,6 +359,14 @@ void generate_assignment(bool isInit, ASTnode* n, short indent, FILE* outFile, h
 	if(isInit){
 		for(i=0; i<n->countChildren; ++i){
 			initialize(n->children[i], indent, outFile, nodes, errBuf);
+if(n->childType == PARAMETER){ printf("@@%d-%s-%d-%d@@", n->id, n->name, n->children[i]->id, n->children[i]->dataType); }
+			if(!n->defined){
+				n->dataType = n->children[i]->dataType;
+				n->defined = true;
+			}
+		}
+		if(n->childType == PARAMETER){
+			lang_c_printTypeName(n, outFile);
 		}
 	}else{
 		for(i=0; i<n->countChildren; ++i){
@@ -284,6 +380,10 @@ void generate_variable(bool isInit, ASTnode* n, short indent, FILE* outFile, has
 	if(isInit){
 		for(i=0; i<n->countChildren; ++i){
 			initialize(n->children[i], indent, outFile, nodes, errBuf);
+			if(n->which == VARIABLE_ASIGN && !n->defined){
+				n->dataType = n->children[i]->dataType;
+				n->defined = true;
+			}
 		}
 	}else{
 		for(i=0; i<n->countChildren; ++i){
@@ -295,17 +395,20 @@ void generate_variable(bool isInit, ASTnode* n, short indent, FILE* outFile, has
 void generate_literal(bool isInit, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i;
 	if(isInit){
-		for(i=0; i<n->countChildren; ++i){
-			initialize(n->children[i], indent, outFile, nodes, errBuf);
-		}
-	}else{
-		for(i=0; i<n->countChildren; ++i){
-			generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
+		switch(n->which){
+			case LITERAL_BOOL: n->dataType = TYPE_BOOL; break;
+			case LITERAL_INT: n->dataType = TYPE_INT; break;
+			case LITERAL_FLOAT: n->dataType = TYPE_FLOAT; break;
+			case LITERAL_STRNG: n->dataType = TYPE_STRNG; break;
+			case LITERAL_ARRAY: n->dataType = TYPE_ARRAY; break;
+			case LITERAL_HASH: n->dataType = TYPE_HASH; break;
+			case LITERAL_STRCT: n->dataType = TYPE_STRCT; break;
 		}
 	}
 }
 
 void initialize(ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
+	if(scope) assignScope(n, scope);
 	switch(n->nodeType){
 		case TYPE_NULL: generate_null(true, n, indent, outFile, nodes, errBuf); break;
 		case ACTION: generate_action(true, false, n, indent, outFile, nodes, errBuf); break;
