@@ -44,12 +44,12 @@ typedef enum adhoc_nodeWhich {
 	,OPERATOR_NOTEQ		// 26
 	,OPERATOR_ARIND		// 27
 	,OPERATOR_TRNIF		// 28
-	,OPERATOR_INCPR		// 29
-	,OPERATOR_INCPS		// 30
-	,OPERATOR_DECPR		// 31
-	,OPERATOR_DECPS		// 32
-	,OPERATOR_NEGPR		// 33
-	,OPERATOR_NEGPS		// 34
+	,ASSIGNMENT_INCPR	// 29
+	,ASSIGNMENT_INCPS	// 30
+	,ASSIGNMENT_DECPR	// 31
+	,ASSIGNMENT_DECPS	// 32
+	,ASSIGNMENT_NEGPR	// 33
+	,ASSIGNMENT_NEGPS	// 34
 	,ASSIGNMENT_EQUAL	// 35
 	,ASSIGNMENT_PLUS	// 36
 	,ASSIGNMENT_MINUS	// 37
@@ -140,12 +140,12 @@ const char* adhoc_nodeWhich_names[] = {
 	,"!="
 	,"[]"
 	,"?:"
-	,"++_"
-	,"_++"
-	,"--_"
-	,"_--"
-	,"!!_"
-	,"_!!"
+	,"++"
+	,"++"
+	,"--"
+	,"--"
+	,"!!"
+	,"!!"
 	,"="
 	,"+="
 	,"-="

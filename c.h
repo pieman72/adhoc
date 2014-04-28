@@ -266,6 +266,13 @@ void generate_control(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 			break;
 		}
 
+		// Declare scope vars
+		for(i=0; i<n->countScopeVars; ++i){
+			lang_c_indent(indent, outFile);
+			lang_c_printTypeName(n->scopeVars[i], outFile);
+			fprintf(outFile, " %s;\n", n->scopeVars[i]->name);
+		}
+
 		// Open for statement
 		lang_c_indent(indent, outFile);
 		fprintf(outFile, "for(");
@@ -360,9 +367,43 @@ void generate_operator(bool isInit, ASTnode* n, short indent, FILE* outFile, has
 			initialize(n->children[i], indent, outFile, nodes, errBuf);
 		}
 	}else{
-		for(i=0; i<n->countChildren; ++i){
-			generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
+		if(n->childType == STATEMENT) lang_c_indent(indent, outFile);
+		switch(n->which){
+			case OPERATOR_NOT:
+				fprintf(outFile, "%s", adhoc_nodeWhich_names[n->which]);
+				generate(false, n->children[0], indent+1, outFile, nodes, errBuf);
+				break;
+			case OPERATOR_ARIND:
+				generate(false, n->children[0], indent+1, outFile, nodes, errBuf);
+				fprintf(outFile, "%s", adhoc_nodeWhich_names[n->which]);
+				break;
+			case OPERATOR_PLUS:
+			case OPERATOR_MINUS:
+			case OPERATOR_TIMES:
+			case OPERATOR_DIVBY:
+			case OPERATOR_MOD:
+			case OPERATOR_EXP:
+			case OPERATOR_OR:
+			case OPERATOR_AND:
+			case OPERATOR_EQUIV:
+			case OPERATOR_GRTTN:
+			case OPERATOR_LESTN:
+			case OPERATOR_GRTEQ:
+			case OPERATOR_LESEQ:
+			case OPERATOR_NOTEQ:
+				generate(false, n->children[0], indent+1, outFile, nodes, errBuf);
+				fprintf(outFile, " %s ", adhoc_nodeWhich_names[n->which]);
+				generate(false, n->children[1], indent+1, outFile, nodes, errBuf);
+				break;
+			case OPERATOR_TRNIF:
+				generate(false, n->children[0], indent+1, outFile, nodes, errBuf);
+				fprintf(outFile, " ? ");
+				generate(false, n->children[1], indent+1, outFile, nodes, errBuf);
+				fprintf(outFile, " : ");
+				generate(false, n->children[2], indent+1, outFile, nodes, errBuf);
+				break;
 		}
+		if(n->childType == STATEMENT) fprintf(outFile, ";\n");
 	}
 }
 
@@ -373,9 +414,37 @@ void generate_assignment(bool isInit, ASTnode* n, short indent, FILE* outFile, h
 			initialize(n->children[i], indent, outFile, nodes, errBuf);
 		}
 	}else{
-		for(i=0; i<n->countChildren; ++i){
-			generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
+		if(n->childType == STATEMENT) lang_c_indent(indent, outFile);
+		switch(n->which){
+			case ASSIGNMENT_INCPR:
+			case ASSIGNMENT_DECPR:
+				fprintf(outFile, "%s", adhoc_nodeWhich_names[n->which]);
+				generate(false, n->children[0], indent+1, outFile, nodes, errBuf);
+				break;
+			case ASSIGNMENT_INCPS:
+			case ASSIGNMENT_DECPS:
+				generate(false, n->children[0], indent+1, outFile, nodes, errBuf);
+				fprintf(outFile, "%s", adhoc_nodeWhich_names[n->which]);
+				break;
+			case ASSIGNMENT_EQUAL:
+			case ASSIGNMENT_PLUS:
+			case ASSIGNMENT_MINUS:
+			case ASSIGNMENT_TIMES:
+			case ASSIGNMENT_DIVBY:
+			case ASSIGNMENT_MOD:
+			case ASSIGNMENT_EXP:
+			case ASSIGNMENT_OR:
+			case ASSIGNMENT_AND:
+				generate(false, n->children[0], indent+1, outFile, nodes, errBuf);
+				fprintf(outFile, " %s ", adhoc_nodeWhich_names[n->which]);
+				generate(false, n->children[1], indent+1, outFile, nodes, errBuf);
+				break;
+			case ASSIGNMENT_NEGPR:
+			case ASSIGNMENT_NEGPS:
+				sprintf(errBuf, "%s", "Negation operator does not exist in C.");
+				break;
 		}
+		if(n->childType == STATEMENT) fprintf(outFile, ";\n");
 	}
 }
 
@@ -397,11 +466,6 @@ void generate_variable(bool isInit, bool defin, ASTnode* n, short indent, FILE* 
 			lang_c_printTypeName(n, outFile);
 		}
 	}else{
-		if(n->childType != PARAMETER || !defin){
-			for(i=0; i<n->countChildren; ++i){
-				generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
-			}
-		}
 		if(n->childType == PARAMETER){
 			if(defin){
 				lang_c_printTypeName(n, outFile);
@@ -409,6 +473,14 @@ void generate_variable(bool isInit, bool defin, ASTnode* n, short indent, FILE* 
 			}
 		}else{
 			fprintf(outFile, "%s", n->name);
+			if(n->which == VARIABLE_ASIGN){
+				fprintf(outFile, " = ");
+			}
+		}
+		if(n->childType != PARAMETER || !defin){
+			for(i=0; i<n->countChildren; ++i){
+				generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
+			}
 		}
 	}
 }
@@ -424,6 +496,30 @@ void generate_literal(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 			case LITERAL_ARRAY: n->dataType = TYPE_ARRAY; break;
 			case LITERAL_HASH: n->dataType = TYPE_HASH; break;
 			case LITERAL_STRCT: n->dataType = TYPE_STRCT; break;
+		}
+	}else{
+		switch(n->which){
+			case LITERAL_BOOL:
+				fprintf(outFile, "%s", (atoi(n->value) ? "true" : "false"));
+				break;
+			case LITERAL_INT:
+				fprintf(outFile, "%s", n->value);
+				break;
+			case LITERAL_FLOAT:
+				fprintf(outFile, "%s", n->value);
+				break;
+			case LITERAL_STRNG:
+				fprintf(outFile, "\"%s\"", n->value);
+				break;
+			case LITERAL_ARRAY:
+				sprintf(errBuf, "%s", "Printing arrays is not implemented :(");
+				break;
+			case LITERAL_HASH:
+				sprintf(errBuf, "%s", "Printing hashes is not implemented :(");
+				break;
+			case LITERAL_STRCT:
+				sprintf(errBuf, "%s", "Printing structs is not implemented :(");
+				break;
 		}
 	}
 }
