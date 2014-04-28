@@ -131,7 +131,7 @@ void generate_action(bool isInit, bool defin, ASTnode* n, short indent, FILE* ou
 					// Set scope to this node
 					scope = n;
 					// Generate arguments
-					generate(false, n->children[i], -1, outFile, nodes, errBuf);
+					generate(true, n->children[i], -1, outFile, nodes, errBuf);
 				}
 			}else{
 				break;
@@ -202,7 +202,7 @@ void generate_action(bool isInit, bool defin, ASTnode* n, short indent, FILE* ou
 
 		// Print the action's arguments
 		for(i=0; i<n->countChildren; ++i){
-			if(n->children[i]->childType == ARGUMENT){
+			if(n->children[i]->childType == ARGUMENT || n->children[i]->childType == PARAMETER){
 				if(i>0) fprintf(outFile, ", ");
 				generate(false, n->children[i], -1, outFile, nodes, errBuf);
 			}
@@ -379,7 +379,7 @@ void generate_assignment(bool isInit, ASTnode* n, short indent, FILE* outFile, h
 	}
 }
 
-void generate_variable(bool isInit, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
+void generate_variable(bool isInit, bool defin, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i;
 	if(isInit){
 		for(i=0; i<n->countChildren; ++i){
@@ -397,12 +397,18 @@ void generate_variable(bool isInit, ASTnode* n, short indent, FILE* outFile, has
 			lang_c_printTypeName(n, outFile);
 		}
 	}else{
-		for(i=0; i<n->countChildren; ++i){
-			generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
+		if(n->childType != PARAMETER || !defin){
+			for(i=0; i<n->countChildren; ++i){
+				generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
+			}
 		}
 		if(n->childType == PARAMETER){
-			lang_c_printTypeName(n, outFile);
-			fprintf(outFile, " %s", n->name);
+			if(defin){
+				lang_c_printTypeName(n, outFile);
+				fprintf(outFile, " %s", n->name);
+			}
+		}else{
+			fprintf(outFile, "%s", n->name);
 		}
 	}
 }
@@ -435,7 +441,7 @@ void initialize(ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* e
 		case CONTROL: generate_control(true, n, indent, outFile, nodes, errBuf); break;
 		case OPERATOR: generate_operator(true, n, indent, outFile, nodes, errBuf); break;
 		case ASSIGNMENT: generate_assignment(true, n, indent, outFile, nodes, errBuf); break;
-		case VARIABLE: generate_variable(true, n, indent, outFile, nodes, errBuf); break;
+		case VARIABLE: generate_variable(true, false, n, indent, outFile, nodes, errBuf); break;
 		case LITERAL: generate_literal(true, n, indent, outFile, nodes, errBuf); break;
 	}
 }
@@ -447,7 +453,7 @@ void generate(bool defin, ASTnode* n, short indent, FILE* outFile, hashMap* node
 		case CONTROL: generate_control(false, n, indent, outFile, nodes, errBuf); break;
 		case OPERATOR: generate_operator(false, n, indent, outFile, nodes, errBuf); break;
 		case ASSIGNMENT: generate_assignment(false, n, indent, outFile, nodes, errBuf); break;
-		case VARIABLE: generate_variable(false, n, indent, outFile, nodes, errBuf); break;
+		case VARIABLE: generate_variable(false, defin, n, indent, outFile, nodes, errBuf); break;
 		case LITERAL: generate_literal(false, n, indent, outFile, nodes, errBuf); break;
 	}
 }
