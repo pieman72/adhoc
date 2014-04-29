@@ -64,6 +64,14 @@ void adhoc_renameNode(ASTnode* n, int d){
 	while(p = strchr(n->name, ' ')){
 		*p = '_';
 	}
+	if(!strcmp(n->package, "System")){
+		char* buf = malloc(strlen(n->name)+1);
+		strcpy(buf, n->name);
+		n->name = realloc(n->name, strlen(n->name)+7);
+		strcpy(n->name, "adhoc_");
+		strcpy(n->name+6, buf);
+		free(buf);
+	}
 }
 
 // Simple function for hashing other structs
