@@ -63,8 +63,14 @@ diff: clean
 	@git diff | /usr/share/vim/vim72/macros/less.sh
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 
+.PHONY: merge
+merge: clean
+	@echo "$(LC1)-- Merging Current Branch Into Master --$(NORMAL)"
+	@ADHOC_CURRENT_BRANCH=`git rev-parse --abbrev-ref HEAD`; if [ $$ADHOC_CURRENT_BRANCH -eq 'master' ]; then echo "Already working on $(LC1)master$(NORMAL)"; return 1; fi; git checkout master; git merge $$ADHOC_CURRENT_BRANCH
+	@echo "[ $(LC3)OK$(NORMAL) ]\n"
+
 .PHONY: branch
-branch:
+branch: clean
 	@echo "$(LC1)-- Create a New Branch --$(NORMAL)"
 	@echo 'Current branch:$(LC4)' `git rev-parse --abbrev-ref HEAD` '$(NORMAL)' | sed 's/master/$(LC1)master/'
 	@read -p "New branch name: " ADHOC_BRANCH_NAME; git checkout -b $$ADHOC_BRANCH_NAME; echo 'Now using: $(LC4)' $$ADHOC_BRANCH_NAME '$(NORMAL)'
