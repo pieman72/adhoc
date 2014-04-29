@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include "hashmap.h"
 #include "adhoc_types.h"
+#include "c.h"
 
 // An enumeration of config file sections
 typedef enum {
@@ -27,24 +28,6 @@ void adhoc_destroyItemLocation(void* v){
 	free(i);
 }
 
-// An abstract syntax tree node for use during parsing
-typedef struct ASTnode {
-	int id;
-	int parentId;
-	int nodeType;
-	int which;
-	int childType;
-	char* package;
-	char* name;
-	char* value;
-	unsigned short countChildren;
-	unsigned short sizeChildren;
-	struct ASTnode** children;
-} ASTnode;
-
-// Generic function pointer type for walks of the abstract syntax tree
-typedef void (*walk_func)(ASTnode*, int);
-
 // Config options
 char* ADHOC_VERSION_NUMBER = "1.0.0";
 char ADHOC_CONFIG_LOCATION[100];
@@ -60,75 +43,40 @@ hashMap* nodeMap;
 // A placeholder node during AST building
 ASTnode* readNode,* ASTroot;
 
-// Allocate memory for a blank node
-ASTnode* adhoc_createBlankNode(){
-	ASTnode* ret = (ASTnode*) malloc(sizeof(ASTnode));
-	ret->package = NULL;
-	ret->name = NULL;
-	ret->value = NULL;
-	ret->countChildren = 0;
-	ret->sizeChildren = 0;
-	ret->children = NULL;
-	return ret;
-}
-
-// Free memory from a node
-void adhoc_destroyNode(void* v){
-	if(!v) return;
-	ASTnode* n = (ASTnode*) v;
-	free(n->package);
-	free(n->name);
-	free(n->value);
-	free(n->children);
-	free(n);
-}
-
-// Determines the lable to use for rendering a node
-const char* adhoc_getNodeLabel(ASTnode* n){
-	if(n->name && strlen(n->name)) return n->name;
-	return adhoc_nodeType_names[n->nodeType];
-}
-
-// Determines the sub-label to use for rendering a node
-const char* adhoc_getNodeSubLabel(ASTnode* n){
-	if(!n->parentId) return n->package;
-	if(n->value && strlen(n->value)) return n->value;
-	if(n->package && strlen(n->package)) return n->package;
-	return adhoc_nodeWhich_names[n->which];
-}
-
 // A walkable simple print function
 void adhoc_printNode(ASTnode* n, int d){
 	char* buf = calloc(20, sizeof(char));
-	sprintf(buf, "%%-%ds%%s%%s (%%s)\n", d*3);
+	sprintf(buf, "%%-%ds%%2d %%s%%s (%%s)\n", d*3);
 	printf(
 		buf
 		,""
-		,(n->parentId ? (n->countChildren ? "+- " : "-- ") : "## ")
+		,n->id
+		,(n->parentId ? (n->countChildren ? "+-" : "--") : "##")
 		,adhoc_getNodeLabel(n)
 		,adhoc_getNodeSubLabel(n)
 	);
 	free(buf);
 }
 
-// Walk the tree with a function to perform on each node
-void adhoc_treeWalk(walk_func f, ASTnode* n, int d){
-	f(n, d);
-	int i;
-	for(i=0; i<n->countChildren; ++i){
-		adhoc_treeWalk(f, n->children[i], d+1);
+// A walkable name checker
+void adhoc_renameNode(ASTnode* n, int d){
+	char* p;
+	while(p = strchr(n->name, ' ')){
+		*p = '_';
+	}
+	if(!strcmp(n->package, "System")){
+		char* buf = malloc(strlen(n->name)+1);
+		strcpy(buf, n->name);
+		n->name = realloc(n->name, strlen(n->name)+7);
+		strcpy(n->name, "adhoc_");
+		strcpy(n->name+6, buf);
+		free(buf);
 	}
 }
 
-// Simple functions for hashing AST nodes and other structs
+// Simple function for hashing other structs
 hashMap_uint adhoc_hashItemLocation(void* i){
 	return hashMap_hashString(((itemLocation*) i)->item);
-}
-hashMap_uint adhoc_hashNode(void* n){
-	return (hashMap_uint) ((ASTnode*) n)->id;
-}
-hashMap_uint adhoc_hashParent(void* n){
-	return (hashMap_uint) ((ASTnode*) n)->parentId;
 }
 
 // Functiont to handle command line variables
@@ -206,7 +154,7 @@ void adhoc_handleConfigVariable(char* var, char* val, char* errBuf){
 		return;
 	}
 	if(!strcmp(var, "ADHOC_OUPUT_COLOR")){
-		ADHOC_OUPUT_COLOR = (bool) strcmp(val, "true");
+		ADHOC_OUPUT_COLOR = !strcmp(val, "true");
 		return;
 	}
 	sprintf(errBuf, "Unknown config variable: %-40s\n", var);
@@ -325,6 +273,7 @@ void adhoc_init(int argc, char** argv, char* errBuf){
 		}
 	}while(!feof(conf));
 	fclose(conf);
+	free(line);
 
 	// We're ready to parse. Set up the data structures
 	nodeMap = hashMap_create(&adhoc_hashNode, ADHOC_ESTIMATED_NODE_COUNT);
@@ -346,6 +295,7 @@ void adhoc_insertNode(ASTnode* n){
 	// Fetch the node's parent by its id
 	ASTnode* parent;
 	parent = (ASTnode*) hashMap_retrieve(nodeMap, adhoc_hashParent((void*)n));
+	n->parent = parent;
 
 	// If the parent has no children, allocate the children array
 	if(!parent->countChildren){
@@ -361,16 +311,19 @@ void adhoc_insertNode(ASTnode* n){
 }
 
 // Validate and optimize the abstract syntax tree
-char* adhoc_validate(){
+void adhoc_validate(char* errBuf){
+	// TODO: Actially validate...
 	adhoc_treeWalk(adhoc_printNode, ASTroot, 0);
-	return NULL;
+	adhoc_treeWalk(adhoc_renameNode, ASTroot, 0);
 }
 
 // Generate the target language code
-char* adhoc_generate(){
+void adhoc_generate(char* errBuf){
 // TODO: make some C!
+lang_c_init(ASTroot, stdout, nodeMap, errBuf);
+printf("\n");
+lang_c_gen(ASTroot, stdout, nodeMap, errBuf);
 //	ADHOC_TARGET_LANGUAGE
-	return NULL;
 }
 
 // Clean up ADHOC

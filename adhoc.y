@@ -44,6 +44,12 @@ int main(int argc, char** argv){
 	adhoc_validate(processResult);
 	if(strlen(processResult)) return yyerror(processResult);
 
+	printf(
+		"\n\n%sBegin generation%s\n"
+		,(ADHOC_OUPUT_COLOR ? "[38;5;63m" : "")
+		,(ADHOC_OUPUT_COLOR ? "[39m" : "")
+	);
+
 	// Generate the target translation
 	adhoc_generate(processResult);
 	if(strlen(processResult)) return yyerror(processResult);
