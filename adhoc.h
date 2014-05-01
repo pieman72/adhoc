@@ -34,6 +34,8 @@ char ADHOC_CONFIG_LOCATION[100];
 bool ADHOC_INFO_ONLY = false;
 char ADHOC_TARGET_LANGUAGE[30];
 bool ADHOC_OUPUT_COLOR = false;
+bool ADHOC_DEBUG_INFO = false;
+bool ADHOC_EXECUTABLE = false;
 hashMap_uint ADHOC_ESTIMATED_NODE_COUNT = 100;
 
 // A hashMap of language module locations
@@ -91,7 +93,19 @@ void adhoc_handleCLIVariable(char* var, char* val, char* errBuf){
 	}
 	// Config file variable
 	if(!strcmp(var, "config")){
-		
+		memset(ADHOC_CONFIG_LOCATION, 0, 100);
+		strcpy(ADHOC_CONFIG_LOCATION, val);
+		return;
+	}
+	// Debug info variable
+	if(!strcmp(var, "debug")){
+		ADHOC_DEBUG_INFO = true;
+		return;
+	}
+	// Executable variable
+	if(!strcmp(var, "executable")){
+		ADHOC_EXECUTABLE = true;
+		return;
 	}
 	// Help variable
 	if(!strcmp(var, "help")){
@@ -101,22 +115,29 @@ void adhoc_handleCLIVariable(char* var, char* val, char* errBuf){
 		printf("[1mUSAGE SYNOPSIS[22m\n\tadhoc [ARGUMENT]... [FILENAME]\n\n");
 		printf("[1mARGUMENTS[22m\n");
 		printf("\t-c [1;4mfilename[22;24m, --config=[1;4mfilename[22;24m\n\t\tUse [1;4mfilename[22;24m as ADHOC's configuration file instead of the\n\t\tdefault adhoc.ini file.\n\n");
+		printf("\t-d, --debug\n\t\tPrint out debug information while parsing the file.\n\n");
+		printf("\t-e, --executable\n\t\tIn addition to generating the target language code from the\n\t\tinput logic, ADHOC will also include code necessary to execute\n\t\tthe output program (e.g. when generating C code, it will include\n\t\ta 'main()' function).\n\n");
 		printf("\t-h, --help\n\t\tPrint this usage information.\n\n");
 		printf("\t-l [1;4mlang[22;24m, --language=[1;4mlang[22;24m\n\t\tSet the target language for code generation to [1;4mlang[22;24m. This\n\t\toverrides the value set for ADHOC_TARGET_LANGUAGE in the config\n\t\tfile.\n\n");
-		printf("\t-o [1;4mfilename[22;24m, --outfile=[1;4mfilename[22;24m\n\t\tDirects generated target code to [1;4mfilename[22;24m instead of stdout.\n\n");
+		printf("\t-o [1;4mfilename[22;24m, --outfile=[1;4mfilename[22;24m\n\t\tDirects generated target code to [1;4mfilename[22;24m instead of stdout.\n\t\tSimilar to adhoc ... > [1;4mfilename[22;24m, but won't affect version info,\n\t\tetc.\n\n");
 		printf("\t-v, --version\n\t\tPrint ADHOC version information.\n\n");
+		printf("[1mLICENSE[22m\n");
+		printf("\tOpen Source Under GPL v3 2014\n");
+		printf("\tMore info at: https://github.com/pieman72/adhoc\n\n");
 		return;
 	}
 	// Language variable
 	if(!strcmp(var, "language")){
 		memset(ADHOC_TARGET_LANGUAGE, 0, 30);
 		strncpy(ADHOC_TARGET_LANGUAGE, val, 29);
+		return;
 	}
 	// Outfile change variable
 	if(!strcmp(var, "outfile")){
 		if(!freopen(val, "w", stdout)){
 			sprintf(errBuf, "Could not open file for writing: %-45s", val);
 		}
+		return;
 	}
 	// Version information variable
 	if(!strcmp(var, "version")){
@@ -131,6 +152,9 @@ void adhoc_handleCLIVariable(char* var, char* val, char* errBuf){
 void adhoc_handleCLIFlag(char flag, char* val, char* errBuf){
 	// Switch converts commandline flags into full length variables
 	switch(flag){
+		case 'c': adhoc_handleCLIVariable("config", val, errBuf); return;
+		case 'd': adhoc_handleCLIVariable("debug", val, errBuf); return;
+		case 'e': adhoc_handleCLIVariable("executable", val, errBuf); return;
 		case 'h': adhoc_handleCLIVariable("help", val, errBuf); return;
 		case 'l': adhoc_handleCLIVariable("language", val, errBuf); return;
 		case 'o': adhoc_handleCLIVariable("outfile", val, errBuf); return;
@@ -157,7 +181,6 @@ void adhoc_handleConfigVariable(char* var, char* val, char* errBuf){
 		ADHOC_OUPUT_COLOR = !strcmp(val, "true");
 		return;
 	}
-	sprintf(errBuf, "Unknown config variable: %-40s\n", var);
 }
 
 // Function to store the locations of various language modules
@@ -184,7 +207,7 @@ void adhoc_setModuleLocation(char* lang, char* loc, char* errBuf){
 void adhoc_init(int argc, char** argv, char* errBuf){
 	// In case a config file is not specified, use 'adhoc.ini'
 	memset(ADHOC_CONFIG_LOCATION, 0, 100);
-	strcpy(ADHOC_CONFIG_LOCATION, "adhoc.ini");
+	strcpy(ADHOC_CONFIG_LOCATION, "./adhoc.ini");
 
 	// Handle commandline arguments
 	int i;
@@ -312,18 +335,25 @@ void adhoc_insertNode(ASTnode* n){
 
 // Validate and optimize the abstract syntax tree
 void adhoc_validate(char* errBuf){
+	if(ADHOC_DEBUG_INFO){
+		adhoc_treeWalk(adhoc_printNode, ASTroot, 0);
+		printf(
+			"\n\n%s-- Begin Generation --%s\n"
+			,(ADHOC_OUPUT_COLOR ? "[38;5;63m" : "")
+			,(ADHOC_OUPUT_COLOR ? "[39m" : "")
+		);
+	}
+
 	// TODO: Actially validate...
-	adhoc_treeWalk(adhoc_printNode, ASTroot, 0);
 	adhoc_treeWalk(adhoc_renameNode, ASTroot, 0);
 }
 
 // Generate the target language code
 void adhoc_generate(char* errBuf){
-// TODO: make some C!
-lang_c_init(ASTroot, stdout, nodeMap, errBuf);
-printf("\n");
-lang_c_gen(ASTroot, stdout, nodeMap, errBuf);
-//	ADHOC_TARGET_LANGUAGE
+//	TODO: ADHOC_TARGET_LANGUAGE
+	lang_c_init(ASTroot, stdout, nodeMap, ADHOC_EXECUTABLE, errBuf);
+	printf("\n");
+	lang_c_gen(ASTroot, stdout, nodeMap, ADHOC_EXECUTABLE, errBuf);
 }
 
 // Clean up ADHOC

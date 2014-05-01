@@ -36,19 +36,21 @@ int main(int argc, char** argv){
 	if(ADHOC_INFO_ONLY) return 0;
 
 	// Parse the input file/stream
-	if(yyparse()) return yyerror("Parse failed");
+	FILE* outRedir;
+	int parseResult;
+	outRedir = stdout;
+	stdout = fopen("/dev/null", "w");
+	parseResult = yyparse();
+	fclose(stdout);
+	stdout = outRedir;
 	// Clean up parse lookahead
 	yylex_destroy(); // <-- WOW This was hard to find!
+	
+	if(parseResult) return yyerror("Parse failed");
 
 	// Validate and optimize the parse tree
 	adhoc_validate(processResult);
 	if(strlen(processResult)) return yyerror(processResult);
-
-	printf(
-		"\n\n%sBegin generation%s\n"
-		,(ADHOC_OUPUT_COLOR ? "[38;5;63m" : "")
-		,(ADHOC_OUPUT_COLOR ? "[39m" : "")
-	);
 
 	// Generate the target translation
 	adhoc_generate(processResult);

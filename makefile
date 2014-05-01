@@ -1,5 +1,5 @@
-CC=gcc
 CFLAGS=-I.
+CC=gcc $(CFLAGS)
 
 NORMAL=[0;39m
 RED=[38;5;160m
@@ -15,10 +15,90 @@ LC3=[38;5;119m
 LC4=[38;5;117m
 LC5=[38;5;125m
 
+.PHONY: fresh
+fresh: uninstall configure install clean
+
+.PHONY: configure
+configure:
+	@echo "$(LC2)-- Configuring ADHOC --$(NORMAL)"
+	@if [ -z `which gcc` ]; then\
+		echo "$(RED)Error:$(NORMAL) It seems you do not have access to 'gcc'. Please install it first, in order to install ADHOC.\n";\
+		return 1;\
+	fi
+	@echo "Please choose a path for ADHOC binary files (here are some suggestions)"
+	@echo " /usr/bin\n"
+	@read -p "Binary path: " ADHOC_BIN_PATH;\
+	ADHOC_BIN_PATH=`echo $$ADHOC_BIN_PATH | sed 's/\/$$//'`;\
+	echo "\nPlease choose a path for ADHOC library files (here are some suggestions)";\
+	echo " /usr/lib\n";\
+	read -p "Library path: " ADHOC_LIB_PATH;\
+	ADHOC_LIB_PATH=`echo $$ADHOC_LIB_PATH | sed 's/\/$$//'`;\
+	echo "\nPlease choose a path for ADHOC include files (here are some suggestions)";\
+	echo " /usr/include\n";\
+	read -p "Include path: " ADHOC_INC_PATH;\
+	ADHOC_INC_PATH=`echo $$ADHOC_INC_PATH | sed 's/\/$$//'`;\
+	cat adhoc.ini\
+		| grep -v '^ADHOC_\(BIN\|LIB\|INC\)_PATH='\
+		| awk '/\[compiler\]/ {\
+			print;\
+			print "ADHOC_BIN_PATH='`echo $$ADHOC_BIN_PATH`'";\
+			print "ADHOC_LIB_PATH='`echo $$ADHOC_LIB_PATH`'";\
+			print "ADHOC_INC_PATH='`echo $$ADHOC_INC_PATH`'";\
+			next }1' > adhoc.ini
+	@echo "\n[ $(LC3)OK$(NORMAL) ]\n"
+
+.PHONY: install
+install: adhoc modules
+	@echo "$(LC4)-- Installing ADHOC --$(NORMAL)"
+	@ADHOC_BIN_PATH=`cat adhoc.ini\
+		| grep '^ADHOC_BIN_PATH='\
+		| sed 's/ADHOC_BIN_PATH=//'`;\
+	ADHOC_LIB_PATH=`cat adhoc.ini\
+		| grep '^ADHOC_LIB_PATH='\
+		| sed 's/ADHOC_LIB_PATH=//'`;\
+	ADHOC_INC_PATH=`cat adhoc.ini\
+		| grep '^ADHOC_INC_PATH='\
+		| sed 's/ADHOC_INC_PATH=//'`;\
+	if [ -d $$ADHOC_LIB_PATH'/adhoc' ]; then\
+		echo "Library path exists. Will not touch it.";\
+	else\
+		echo 'Creating ADHOC library directory at: $(LC2)'$$ADHOC_LIB_PATH'/adhoc$(NORMAL)';\
+		sudo mkdir $$ADHOC_LIB_PATH'/adhoc';\
+	fi;\
+	echo 'Copying ADHOC binary';\
+	sudo install -D adhoc $$ADHOC_BIN_PATH'/adhoc';\
+	echo 'Copying library files';\
+	echo -n 'adhoc.ini\nlibadhoc.a'\
+		| xargs -I% sh -c 'sudo cp % '$$ADHOC_LIB_PATH'/adhoc/';\
+	echo 'Copying include files';\
+	sudo cp libadhoc.h $$ADHOC_INC_PATH
+	@echo "[ $(LC3)OK$(NORMAL) ]\n"
+
+.PHONY: uninstall
+uninstall:
+	@echo "$(LC4)-- Uninstalling Any Existing ADHOC Files --$(NORMAL)"
+	@ADHOC_BIN_PATH=`cat adhoc.ini\
+		| grep '^ADHOC_BIN_PATH='\
+		| sed 's/ADHOC_BIN_PATH=//'`;\
+	ADHOC_LIB_PATH=`cat adhoc.ini\
+		| grep '^ADHOC_LIB_PATH='\
+		| sed 's/ADHOC_LIB_PATH=//'`;\
+	ADHOC_INC_PATH=`cat adhoc.ini\
+		| grep '^ADHOC_INC_PATH='\
+		| sed 's/ADHOC_INC_PATH=//'`;\
+	sudo rm -rf %%ADHOC_BIN_PATH'/adhoc' $$ADHOC_LIB_PATH'/adhoc' $$ADHOC_INC_PATH'/libadhoc.h'
+	@echo "[ $(LC3)OK$(NORMAL) ]\n"
+
+.PHONY: run
+run: adhoc
+	@echo "$(LC4)-- Running ADHOC --$(NORMAL)"
+	@./adhoc programs/test.adh
+	@echo "[ $(LC3)OK$(NORMAL) ]\n"
+
 .PHONY: test
 test: adhoc
 	@echo "$(LC4)-- Testing ADHOC --$(NORMAL)"
-	@./adhoc programs/test.adh
+	@./adhoc -d programs/test.adh
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 
 .PHONY: grind_full
@@ -76,6 +156,16 @@ branch: clean
 	@read -p "New branch name: " ADHOC_BRANCH_NAME; git checkout -b $$ADHOC_BRANCH_NAME; echo 'Now using: $(LC4)' $$ADHOC_BRANCH_NAME '$(NORMAL)'
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 
+.PHONY: modules
+modules: c_module
+
+.PHONY: c_module
+c_module:
+	@echo "$(LC1)-- Compiling C Module --$(NORMAL)"
+	@$(CC) -Wall -fPIC -c libadhoc.c -o libadhoc.o
+	@ar -cq libadhoc.a libadhoc.o
+	@echo "[ $(LC3)OK$(NORMAL) ]\n"
+
 .PHONY: adhoc
 adhoc: grammar lex.yy.c y.tab.c adhoc.h adhoc_types.h
 	@echo "$(LC3)-- Creating Compiler --$(NORMAL)"
@@ -94,7 +184,7 @@ grammar: adhoc.l adhoc.y
 .PHONY: clean
 clean:
 	@echo "$(LC5)-- Cleaning Up --$(NORMAL)"
-	@rm -rf lex.yy.c y.tab.c y.tab.h adhoc
+	@rm -rf lex.yy.c y.tab.c y.tab.h adhoc libadhoc.a *.o
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 
 .PHONY: clear

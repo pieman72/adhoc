@@ -1,5 +1,6 @@
 #ifndef HASHMAP_H
 #define HASHMAP_H
+#include <stdlib.h>
 
 // Why hashMap_uint no standard??
 typedef unsigned int hashMap_uint;
@@ -36,7 +37,7 @@ const hashMap_uint HASHMAP_SIZES[] = {
 hashMap_uint hashMap_hashString(void* v){
 	char* s = (char*) v;
     hashMap_uint h = 5381,c;
-	while(c = *s++){
+	while((c = *s++)){
 		h = ((h << 5) + h) + c; // h * 33 + c
 	}
     return h;
@@ -144,6 +145,7 @@ hashMap_uint hashMap_add(hashMap* h, void* v){
 		++h->count;
 		return item->key;
 	}
+	return 0; // This case should not occur
 }
 
 // Retrieves an item from a hashMap by its key
@@ -157,11 +159,13 @@ void* hashMap_retrieve(hashMap* h, hashMap_uint k){
 			if(h->items[j]->key == k){
 				return h->items[j]->value;
 			}
+		}else{
+			return NULL;
 		}
-
-		// Return null if the item was not found
-		return NULL;
 	}
+
+	// Return null if the item was not found
+	return NULL;
 }
 
 // Retrieves an item from a hashMap matching a new item
@@ -184,10 +188,12 @@ void* hashMap_remove(hashMap* h, hashMap_uint k){
 				--h->count;
 				return ret;
 			}
+		}else{
+			return NULL;
 		}
-
-		// Return null if the item was not found
-		return NULL;
 	}
+
+	// Return null if the item was not found
+	return NULL;
 }
 #endif

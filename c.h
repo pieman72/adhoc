@@ -54,7 +54,7 @@ ASTnode* findScope(char* v, ASTnode* s){
 }
 
 // C names for data types
-char* lang_c_printTypeName(ASTnode* n, FILE* o){
+void lang_c_printTypeName(ASTnode* n, FILE* o){
 	switch(n->dataType){
 	case TYPE_NULL:
 		fprintf(o, "void");
@@ -199,6 +199,29 @@ void generate_action(bool isInit, bool defin, ASTnode* n, short indent, FILE* ou
 		// Indent this function call, and call it
 		lang_c_indent(indent, outFile);
 		fprintf(outFile, "%s(", n->name);
+
+		// Special handling for library functions
+		if(!strcmp(n->package, "System")){
+			// ADHOC print function
+			if(!strcmp(n->name, "adhoc_print")){
+				fprintf(outFile, "\"");
+				for(i=0; i<n->countChildren; ++i){
+					switch(n->children[i]->dataType){
+						case TYPE_BOOL: fprintf(outFile, "%%d"); break;
+						case TYPE_INT: fprintf(outFile, "%%d"); break;
+						case TYPE_FLOAT: fprintf(outFile, "%%f"); break;
+						case TYPE_STRNG: fprintf(outFile, "%%s"); break;
+						default: sprintf(
+							errBuf
+							,"Node %d: Value not acceptable for printing %d"
+							,n->children[i]->id
+,n->children[i]->dataType
+						);
+					}
+				}
+				fprintf(outFile, "\", ");
+			}
+		}
 
 		// Print the action's arguments
 		for(i=0; i<n->countChildren; ++i){
@@ -365,6 +388,16 @@ void generate_operator(bool isInit, ASTnode* n, short indent, FILE* outFile, has
 	if(isInit){
 		for(i=0; i<n->countChildren; ++i){
 			initialize(n->children[i], indent, outFile, nodes, errBuf);
+			switch(n->which){
+				case OPERATOR_NOT:
+					n->dataType = TYPE_BOOL;
+					break;
+				case OPERATOR_TRNIF:
+					n->dataType = n->children[1]->dataType;
+					break;
+				default:
+					n->dataType = n->children[0]->dataType;
+			}
 		}
 	}else{
 		if(n->childType == STATEMENT) lang_c_indent(indent, outFile);
@@ -375,7 +408,9 @@ void generate_operator(bool isInit, ASTnode* n, short indent, FILE* outFile, has
 				break;
 			case OPERATOR_ARIND:
 				generate(false, n->children[0], indent+1, outFile, nodes, errBuf);
-				fprintf(outFile, "%s", adhoc_nodeWhich_names[n->which]);
+				fprintf(outFile, "[");
+				generate(false, n->children[1], indent+1, outFile, nodes, errBuf);
+				fprintf(outFile, "]");
 				break;
 			case OPERATOR_PLUS:
 			case OPERATOR_MINUS:
@@ -412,6 +447,16 @@ void generate_assignment(bool isInit, ASTnode* n, short indent, FILE* outFile, h
 	if(isInit){
 		for(i=0; i<n->countChildren; ++i){
 			initialize(n->children[i], indent, outFile, nodes, errBuf);
+			switch(n->which){
+				case ASSIGNMENT_OR:
+				case ASSIGNMENT_AND:
+				case ASSIGNMENT_NEGPR:
+				case ASSIGNMENT_NEGPS:
+					n->dataType = TYPE_BOOL;
+					break;
+				default:
+					n->dataType = n->children[0]->dataType;
+			}
 		}
 	}else{
 		if(n->childType == STATEMENT) lang_c_indent(indent, outFile);
@@ -441,7 +486,12 @@ void generate_assignment(bool isInit, ASTnode* n, short indent, FILE* outFile, h
 				break;
 			case ASSIGNMENT_NEGPR:
 			case ASSIGNMENT_NEGPS:
-				sprintf(errBuf, "%s", "Negation operator does not exist in C.");
+				sprintf(
+					errBuf
+					,"Node %d: %s"
+					,n->children[0]->id
+					,"Negation operator does not exist in C."
+				);
 				break;
 		}
 		if(n->childType == STATEMENT) fprintf(outFile, ";\n");
@@ -554,16 +604,28 @@ void generate(bool defin, ASTnode* n, short indent, FILE* outFile, hashMap* node
 	}
 }
 
-void lang_c_init(ASTnode* n, FILE* outFile, hashMap* nodes, char* errBuf){
+void lang_c_init(ASTnode* n, FILE* outFile, hashMap* nodes, bool exec, char* errBuf){
 	countFuncs = 0;
 	sizeFuncs = 2;
 	functions = realloc(functions, sizeFuncs * sizeof(ASTnode*));
+	if(exec){
+		fprintf(outFile, "#include <libadhoc.h>\n");
+	}
 	initialize(n, 0, outFile, nodes, errBuf);
 }
-void lang_c_gen(ASTnode* n, FILE* outFile, hashMap* nodes, char* errBuf){
+void lang_c_gen(ASTnode* n, FILE* outFile, hashMap* nodes, bool exec, char* errBuf){
 	int i;
 	for(i=0; i<countFuncs; ++i){
 		generate(true, functions[i], 0, outFile, nodes, errBuf);
+	}
+	if(exec && i){
+		fprintf(outFile, "\n// Main function for execution\n");
+		fprintf(outFile, "int main(int argc, char **argv){\n");
+		lang_c_indent(1, outFile);
+		fprintf(outFile, "%s();\n", n->name);
+		lang_c_indent(1, outFile);
+		fprintf(outFile, "return 0;\n");
+		fprintf(outFile, "}\n");
 	}
 	free(functions);
 }
