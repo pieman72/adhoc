@@ -45,6 +45,12 @@ hashMap* nodeMap;
 // A placeholder node during AST building
 ASTnode* readNode,* ASTroot;
 
+// Check if a file es accessible in a particular mode
+bool fileAcc(char* path, char* mode){
+	FILE* f;
+	return (f=fopen(path, mode)) && !fclose(f);
+}
+
 // A walkable simple print function
 void adhoc_printNode(ASTnode* n, int d){
 	char* buf = calloc(20, sizeof(char));
@@ -205,9 +211,17 @@ void adhoc_setModuleLocation(char* lang, char* loc, char* errBuf){
 
 // Initialize ADHOC. Read conficuration files / arguments
 void adhoc_init(int argc, char** argv, char* errBuf){
-	// In case a config file is not specified, use 'adhoc.ini'
+	// Check likely config file locations. Can be overridden by CLI arg
 	memset(ADHOC_CONFIG_LOCATION, 0, 100);
-	strcpy(ADHOC_CONFIG_LOCATION, "./adhoc.ini");
+	if(fileAcc("./adhoc.ini", "r")){
+		strcpy(ADHOC_CONFIG_LOCATION, "./adhoc.ini");
+	}else if(fileAcc("~/adhoc.ini", "r")){
+		strcpy(ADHOC_CONFIG_LOCATION, "~/adhoc.ini");
+	}else if(fileAcc("/usr/lib/adhoc/adhoc.ini", "r")){
+		strcpy(ADHOC_CONFIG_LOCATION, "/usr/lib/adhoc/adhoc.ini");
+	}
+	memset(ADHOC_TARGET_LANGUAGE, 0, 30);
+	ADHOC_TARGET_LANGUAGE[0] = 'c';
 
 	// Handle commandline arguments
 	int i;
@@ -242,61 +256,64 @@ void adhoc_init(int argc, char** argv, char* errBuf){
 	// If all that was wanted was help or version info, return now
 	if(ADHOC_INFO_ONLY) return;
 
-	// Load the config file
-	FILE* conf;
-	if(!(conf = fopen(ADHOC_CONFIG_LOCATION, "r"))){
-		sprintf(errBuf, "Could not open config file: %-50s", ADHOC_CONFIG_LOCATION);
-	}
-
-	// Read in lines of the config file and process them
-	int len, size;
-	size = 30;
-	char* line;
-	line = (char*) malloc(size);
-	config_state confStat;
-	confStat = CONFIG_STATE_NULL;
-	do{
-		// Read the line and skip it if it failes or is empty
-        len = getline(&line, &size, conf);
-		if(len<0) break;
-		if(len<3 && !feof(conf)) continue;
-
-		// Remove line-ending characters
-		if(len>1 && (line[len-2]=='\r' || line[len-2]=='\n')) line[len-2] = '\0';
-		if(len>0 && (line[len-1]=='\r' || line[len-1]=='\n')) line[len-1] = '\0';
-
-		// Handle different kinds of config lines
-		switch(line[0]){
-			// Comments are ignored
-			case '#': break;
-			// Block delimiters change config state
-			case '[':
-				line[strlen(line)-1] = '\0';
-				if(!strcmp(line+1, "compiler")){
-					confStat = CONFIG_STATE_COMPILER;
-					break;
-				}
-				if(!strcmp(line+1, "modules")){
-					confStat = CONFIG_STATE_MODULES;
-					moduleMap = hashMap_create(&adhoc_hashItemLocation, 10);
-					break;
-				}
-			// All other lines should be options
-			default:
-				// In the compiler state, we are setting runtime options
-				if(confStat == CONFIG_STATE_COMPILER){
-					adhoc_handleConfigVariable(line, NULL, errBuf);
-					if(strlen(errBuf)) return;
-				// In the modules state, we are reading a list of module locations
-				}else if(confStat == CONFIG_STATE_MODULES){
-					adhoc_setModuleLocation(line, NULL, errBuf);
-					if(strlen(errBuf)) return;
-				}
-				break;
+	// If a config file exists, Read in lines of the config file and process them
+	if(strlen(ADHOC_CONFIG_LOCATION)){
+		// Load the config file
+		FILE* conf;
+		if(!(conf = fopen(ADHOC_CONFIG_LOCATION, "r"))){
+			sprintf(errBuf, "Could not open config file: %-50s", ADHOC_CONFIG_LOCATION);
 		}
-	}while(!feof(conf));
-	fclose(conf);
-	free(line);
+
+		// Prepare to read lines of input
+		int len, size;
+		size = 30;
+		char* line;
+		line = (char*) malloc(size);
+		config_state confStat;
+		confStat = CONFIG_STATE_NULL;
+		do{
+			// Read the line and skip it if it failes or is empty
+			len = getline(&line, &size, conf);
+			if(len<0) break;
+			if(len<3 && !feof(conf)) continue;
+
+			// Remove line-ending characters
+			if(len>1 && (line[len-2]=='\r' || line[len-2]=='\n')) line[len-2] = '\0';
+			if(len>0 && (line[len-1]=='\r' || line[len-1]=='\n')) line[len-1] = '\0';
+
+			// Handle different kinds of config lines
+			switch(line[0]){
+				// Comments are ignored
+				case '#': break;
+				// Block delimiters change config state
+				case '[':
+					line[strlen(line)-1] = '\0';
+					if(!strcmp(line+1, "compiler")){
+						confStat = CONFIG_STATE_COMPILER;
+						break;
+					}
+					if(!strcmp(line+1, "modules")){
+						confStat = CONFIG_STATE_MODULES;
+						moduleMap = hashMap_create(&adhoc_hashItemLocation, 10);
+						break;
+					}
+				// All other lines should be options
+				default:
+					// In the compiler state, we are setting runtime options
+					if(confStat == CONFIG_STATE_COMPILER){
+						adhoc_handleConfigVariable(line, NULL, errBuf);
+						if(strlen(errBuf)) return;
+					// In the modules state, we are reading a list of module locations
+					}else if(confStat == CONFIG_STATE_MODULES){
+						adhoc_setModuleLocation(line, NULL, errBuf);
+						if(strlen(errBuf)) return;
+					}
+					break;
+			}
+		}while(!feof(conf));
+		fclose(conf);
+		free(line);
+	}
 
 	// We're ready to parse. Set up the data structures
 	nodeMap = hashMap_create(&adhoc_hashNode, ADHOC_ESTIMATED_NODE_COUNT);

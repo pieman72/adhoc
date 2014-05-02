@@ -16,7 +16,7 @@ LC4=[38;5;117m
 LC5=[38;5;125m
 
 .PHONY: fresh
-fresh: uninstall configure install clean
+fresh: uninstall install clean
 
 .PHONY: configure
 configure:
@@ -132,7 +132,10 @@ commit: clean
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 
 .PHONY: update
-update: clean
+update: pull
+
+.PHONY: pull
+pull:
 	@echo "$(LC1)-- Fetching Remote Changes --$(NORMAL)"
 	@git pull https://github.com/pieman72/adhoc
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
@@ -146,14 +149,24 @@ diff: clean
 .PHONY: merge
 merge: clean
 	@echo "$(LC1)-- Merging Current Branch Into Master --$(NORMAL)"
-	@ADHOC_CURRENT_BRANCH=`git rev-parse --abbrev-ref HEAD`; if [ $$ADHOC_CURRENT_BRANCH -eq 'master' ]; then echo "Already working on $(LC1)master$(NORMAL)"; return 1; fi; git checkout master; git merge $$ADHOC_CURRENT_BRANCH
+	@ADHOC_CURRENT_BRANCH=`git rev-parse --abbrev-ref HEAD`;\
+	if [ $$ADHOC_CURRENT_BRANCH -eq 'master' ]; then\
+		echo "Already working on $(LC1)master$(NORMAL)";\
+		return 1;\
+	fi;\
+	git checkout master;\
+	git merge $$ADHOC_CURRENT_BRANCH;\
+	git push https://github.com/pieman72/adhoc --delete $$ADHOC_CURRENT_BRANCH
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 
 .PHONY: branch
 branch: clean
 	@echo "$(LC1)-- Create a New Branch --$(NORMAL)"
-	@echo 'Current branch:$(LC4)' `git rev-parse --abbrev-ref HEAD` '$(NORMAL)' | sed 's/master/$(LC1)master/'
-	@read -p "New branch name: " ADHOC_BRANCH_NAME; git checkout -b $$ADHOC_BRANCH_NAME; echo 'Now using: $(LC4)' $$ADHOC_BRANCH_NAME '$(NORMAL)'
+	@echo 'Current branch:$(LC4)' `git rev-parse --abbrev-ref HEAD` '$(NORMAL)'\
+		| sed 's/master/$(LC1)master/'
+	@read -p "New branch name: " ADHOC_BRANCH_NAME;\
+	git checkout -b $$ADHOC_BRANCH_NAME;\
+	echo 'Now using: $(LC4)' $$ADHOC_BRANCH_NAME '$(NORMAL)'
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 
 .PHONY: modules
