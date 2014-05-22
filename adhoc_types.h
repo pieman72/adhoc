@@ -84,6 +84,8 @@ typedef enum adhoc_nodeChildType {
 	,PARENT			// 8
 	,CHILD			// 9
 	,MEMBER			// 10
+	,IF				// 11
+	,ELSE			// 12
 } nodeChildType;
 
 // Data types
@@ -182,6 +184,8 @@ const char* adhoc_nodeChildType_names[] = {
 	,"parent"
 	,"child"
 	,"member"
+	,"if"
+	,"else"
 };
 
 // An abstract syntax tree node for use during parsing
