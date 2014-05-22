@@ -150,7 +150,7 @@ diff: clean
 merge: clean
 	@echo "$(LC1)-- Merging Current Branch Into Master --$(NORMAL)"
 	@ADHOC_CURRENT_BRANCH=`git rev-parse --abbrev-ref HEAD`;\
-	if [ $$ADHOC_CURRENT_BRANCH -eq 'master' ]; then\
+	if [ $$ADHOC_CURRENT_BRANCH = 'master' ]; then\
 		echo "Already working on $(LC1)master$(NORMAL)";\
 		return 1;\
 	fi;\
