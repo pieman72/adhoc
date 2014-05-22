@@ -215,7 +215,7 @@ void generate_action(bool isInit, bool defin, ASTnode* n, short indent, FILE* ou
 							errBuf
 							,"Node %d: Value not acceptable for printing %d"
 							,n->children[i]->id
-,n->children[i]->dataType
+							,n->children[i]->dataType
 						);
 					}
 				}
