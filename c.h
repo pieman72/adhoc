@@ -277,21 +277,6 @@ void generate_control(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 		sprintf(errBuf, "IF statements are not implemented yet :(");
 		break;
 
-	case CONTROL_ELSE:
-		// Nothing to do on initialization
-		if(isInit){
-			for(i=0; i<n->countChildren; ++i){
-				// Set scope to this node
-				scope = n;
-				// Initialize children
-				initialize(n->children[i], indent, outFile, nodes, errBuf);
-			}
-			break;
-		}
-
-		sprintf(errBuf, "Else statements are not implemented yet :(");
-		break;
-
 	case CONTROL_LOOP:
 		// Nothing to do during initialization
 		if(isInit){
