@@ -55,8 +55,9 @@ bool fileAcc(char* path, char* mode){
 void adhoc_printNode(ASTnode* n, int d){
 	char* buf = calloc(20, sizeof(char));
 	sprintf(buf, "%%-%ds%%2d %%s%%s (%%s)\n", d*3);
-	printf(
-		buf
+	fprintf(
+		stderr
+		,buf
 		,""
 		,n->id
 		,(n->parentId ? (n->countChildren ? "+-" : "--") : "##")
@@ -354,8 +355,9 @@ void adhoc_insertNode(ASTnode* n){
 void adhoc_validate(char* errBuf){
 	if(ADHOC_DEBUG_INFO){
 		adhoc_treeWalk(adhoc_printNode, ASTroot, 0);
-		printf(
-			"\n\n%s-- Begin Generation --%s\n"
+		fprintf(
+			stderr
+			,"\n\n%s-- Begin Generation --%s\n"
 			,(ADHOC_OUPUT_COLOR ? "[38;5;63m" : "")
 			,(ADHOC_OUPUT_COLOR ? "[39m" : "")
 		);
