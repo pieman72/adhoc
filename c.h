@@ -111,7 +111,7 @@ void generate_action(bool isInit, bool defin, ASTnode* n, short indent, FILE* ou
 		// Leave a comment above the function definition
 		fprintf(outFile, "\n");
 		lang_c_indent(indent, outFile);
-		fprintf(outFile, "// %s\n", n->value);
+		if(n->value && strlen(n->value)) fprintf(outFile, "// %s\n", n->value);
 
 		// Print the function return type and name
 		lang_c_indent(indent, outFile);
@@ -383,6 +383,7 @@ void generate_control(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 	}
 }
 
+// Generation rules for operators
 void generate_operator(bool isInit, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i;
 	if(isInit){
@@ -442,6 +443,7 @@ void generate_operator(bool isInit, ASTnode* n, short indent, FILE* outFile, has
 	}
 }
 
+// Generation rules for assignments
 void generate_assignment(bool isInit, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i;
 	if(isInit){
@@ -498,6 +500,7 @@ void generate_assignment(bool isInit, ASTnode* n, short indent, FILE* outFile, h
 	}
 }
 
+// Generation rules for variables
 void generate_variable(bool isInit, bool defin, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i;
 	if(isInit){
@@ -521,11 +524,10 @@ void generate_variable(bool isInit, bool defin, ASTnode* n, short indent, FILE* 
 				lang_c_printTypeName(n, outFile);
 				fprintf(outFile, " %s", n->name);
 			}
+		}else if(n->childType == INITIALIZATION){
+			fprintf(outFile, "%s = ", n->name);
 		}else{
 			fprintf(outFile, "%s", n->name);
-			if(n->which == VARIABLE_ASIGN){
-				fprintf(outFile, " = ");
-			}
 		}
 		if(n->childType != PARAMETER || !defin){
 			for(i=0; i<n->countChildren; ++i){
@@ -535,6 +537,7 @@ void generate_variable(bool isInit, bool defin, ASTnode* n, short indent, FILE* 
 	}
 }
 
+// Generation rules for literals
 void generate_literal(bool isInit, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i;
 	if(isInit){
@@ -574,6 +577,7 @@ void generate_literal(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 	}
 }
 
+// Function to initialize an AST node
 void initialize(ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	// Assign the scope of this node to the current scope
 	// TODO: Later, this should be done during validation
@@ -591,6 +595,7 @@ void initialize(ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* e
 		case LITERAL: generate_literal(true, n, indent, outFile, nodes, errBuf); break;
 	}
 }
+// Function to generate code from an AST node
 void generate(bool defin, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	switch(n->nodeType){
 		case TYPE_NULL: generate_null(false, n, indent, outFile, nodes, errBuf); break;
@@ -604,6 +609,7 @@ void generate(bool defin, ASTnode* n, short indent, FILE* outFile, hashMap* node
 	}
 }
 
+// Hook function for generalized initialization
 void lang_c_init(ASTnode* n, FILE* outFile, hashMap* nodes, bool exec, char* errBuf){
 	countFuncs = 0;
 	sizeFuncs = 2;
@@ -613,6 +619,7 @@ void lang_c_init(ASTnode* n, FILE* outFile, hashMap* nodes, bool exec, char* err
 	}
 	initialize(n, 0, outFile, nodes, errBuf);
 }
+// Hook function for generalized code generation
 void lang_c_gen(ASTnode* n, FILE* outFile, hashMap* nodes, bool exec, char* errBuf){
 	int i;
 	for(i=0; i<countFuncs; ++i){
