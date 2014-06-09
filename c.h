@@ -274,7 +274,45 @@ void generate_control(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 			break;
 		}
 
-		sprintf(errBuf, "IF statements are not implemented yet :(");
+		// Print the opening of the 'if' block
+		lang_c_indent(indent, outFile);
+		fprintf(outFile, "if(");
+
+		// Print the condition
+		for(i=0; i<n->countChildren; ++i){
+			if(n->children[i]->childType == CONDITION){
+				generate(false, n->children[i], -1, outFile, nodes, errBuf);
+				break;
+			}
+		}
+
+		// Close the 'if' line
+		fprintf(outFile, "){\n");
+
+		// Print the 'if' statements
+		for(i=0; i<n->countChildren; ++i){
+			if(n->children[i]->childType != IF) continue;
+			generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
+			if(n->children[i]->nodeType != GROUP) fprintf(outFile, ";\n");
+		}
+
+		// Print the 'else' statements
+		bool needElse = true;
+		for(i=0; i<n->countChildren; ++i){
+			if(n->children[i]->childType != ELSE) continue;
+			if(needElse){
+				lang_c_indent(indent, outFile);
+				fprintf(outFile, "}else{\n");
+				needElse = false;
+			}
+			generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
+			if(n->children[i]->nodeType != GROUP) fprintf(outFile, ";\n");
+		}
+
+		// Close the whole 'if' block
+		lang_c_indent(indent, outFile);
+		fprintf(outFile, "}\n");
+		
 		break;
 
 	case CONTROL_LOOP:
@@ -556,7 +594,7 @@ void generate_literal(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 				fprintf(outFile, "%s", (atoi(n->value) ? "true" : "false"));
 				break;
 			case LITERAL_INT:
-				fprintf(outFile, "%s", n->value);
+				fprintf(outFile, "%d", atoi(n->value));
 				break;
 			case LITERAL_FLOAT:
 				fprintf(outFile, "%s", n->value);
