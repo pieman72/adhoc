@@ -19,7 +19,7 @@ typedef struct itemLocation {
 	char* location;
 } itemLocation;
 
-// Free memory from an itemLocaiton {
+// Free memory from an itemLocation {
 void adhoc_destroyItemLocation(void* v){
 	if(!v) return;
 	itemLocation* i = (itemLocation*) v;
@@ -45,7 +45,7 @@ hashMap* nodeMap;
 // A placeholder node during AST building
 ASTnode* readNode,* ASTroot;
 
-// Check if a file es accessible in a particular mode
+// Check if a file is accessible in a particular mode
 bool fileAcc(char* path, char* mode){
 	FILE* f;
 	return (f=fopen(path, mode)) && !fclose(f);
@@ -88,7 +88,7 @@ hashMap_uint adhoc_hashItemLocation(void* i){
 	return hashMap_hashString(((itemLocation*) i)->item);
 }
 
-// Functiont to handle command line variables
+// Function to handle command line variables
 void adhoc_handleCLIVariable(char* var, char* val, char* errBuf){
 	if(val == NULL){
 		char* p = strchr(var, '=');
@@ -155,9 +155,9 @@ void adhoc_handleCLIVariable(char* var, char* val, char* errBuf){
 	sprintf(errBuf, "Unknown CLI variable: '--%-50s'\n", var);
 }
 
-// Functiont to handle command line flags
+// Function to handle command line flags
 void adhoc_handleCLIFlag(char flag, char* val, char* errBuf){
-	// Switch converts commandline flags into full length variables
+	// Switch converts command line flags into full length variables
 	switch(flag){
 		case 'c': adhoc_handleCLIVariable("config", val, errBuf); return;
 		case 'd': adhoc_handleCLIVariable("debug", val, errBuf); return;
@@ -210,7 +210,7 @@ void adhoc_setModuleLocation(char* lang, char* loc, char* errBuf){
 	hashMap_add(moduleMap, (void*) i);
 }
 
-// Initialize ADHOC. Read conficuration files / arguments
+// Initialize ADHOC. Read configuration files / arguments
 void adhoc_init(int argc, char** argv, char* errBuf){
 	// Check likely config file locations. Can be overridden by CLI arg
 	memset(ADHOC_CONFIG_LOCATION, 0, 100);
@@ -224,7 +224,7 @@ void adhoc_init(int argc, char** argv, char* errBuf){
 	memset(ADHOC_TARGET_LANGUAGE, 0, 30);
 	ADHOC_TARGET_LANGUAGE[0] = 'c';
 
-	// Handle commandline arguments
+	// Handle command line arguments
 	int i;
 	for(i=1; i<argc; ++i){
 		// Understood argument patterns
@@ -363,7 +363,7 @@ void adhoc_validate(char* errBuf){
 		);
 	}
 
-	// TODO: Actially validate...
+	// TODO: Actually validate...
 	adhoc_treeWalk(adhoc_renameNode, ASTroot, 0);
 }
 
