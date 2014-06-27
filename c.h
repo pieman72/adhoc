@@ -157,14 +157,6 @@ void generate_action(bool isInit, bool defin, ASTnode* n, short indent, FILE* ou
 				scope = n;
 				// Initialize children
 				initialize(n->children[i], indent, outFile, nodes, errBuf);
-
-				// Type is determined by type of first returned child
-				// TODO: This will hang on recursion, but I'll jump off that bridge later...
-				if(n->dataType == TYPE_VOID
-						&& n->children[i]->dataType != TYPE_VOID
-						&& n->which == CONTROL_RETRN){
-					n->dataType = n->children[i]->dataType;
-				}
 			}
 
 		// Otherwise we print the full function body
@@ -177,6 +169,7 @@ void generate_action(bool isInit, bool defin, ASTnode* n, short indent, FILE* ou
 
 			// Print declarations for any scope vars
 			for(j=0; j<n->countScopeVars; ++j){
+				if(n->scopeVars[j]->childType == PARAMETER) continue;
 				lang_c_indent(indent+1, outFile);
 				lang_c_printTypeName(n->scopeVars[j], outFile);
 				fprintf(outFile, " %s;\n", n->scopeVars[j]->name);
@@ -275,8 +268,6 @@ void generate_control(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 		// Nothing to do on initialization
 		if(isInit){
 			for(i=0; i<n->countChildren; ++i){
-				// Set scope to this node
-				scope = n;
 				// Initialize children
 				initialize(n->children[i], indent, outFile, nodes, errBuf);
 			}
@@ -325,8 +316,6 @@ void generate_control(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 		// Nothing to do during initialization
 		if(isInit){
 			for(i=0; i<n->countChildren; ++i){
-				// Set scope to this node
-				scope = n;
 				// Initialize children
 				initialize(n->children[i], indent, outFile, nodes, errBuf);
 			}
@@ -347,8 +336,6 @@ void generate_control(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 		// Find the initialization and print it
 		for(i=0; i<n->countChildren; ++i){
 			if(n->children[i]->childType == INITIALIZATION){
-				// Set scope to this node
-				scope = n;
 				// Generate initialization
 				generate(false, n->children[i], -1, outFile, nodes, errBuf);
 				break;
@@ -359,8 +346,6 @@ void generate_control(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 		// Find the condition and print it
 		for(i=0; i<n->countChildren; ++i){
 			if(n->children[i]->childType == CONDITION){
-				// Set scope to this node
-				scope = n;
 				// Generate condition
 				generate(false, n->children[i], -1, outFile, nodes, errBuf);
 				break;
@@ -372,8 +357,6 @@ void generate_control(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 		for(i=0; i<n->countChildren; ++i){
 			if(n->children[i]->childType == INITIALIZATION) continue;
 			if(n->children[i]->childType == CONDITION) continue;
-			// Set scope to this node
-			scope = n;
 			// Generate children
 			generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
 		}
@@ -387,8 +370,6 @@ void generate_control(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 		// Nothing to do on initialization
 		if(isInit){
 			for(i=0; i<n->countChildren; ++i){
-				// Set scope to this node
-				scope = n;
 				// Initialize children
 				initialize(n->children[i], indent, outFile, nodes, errBuf);
 			}
@@ -414,8 +395,6 @@ void generate_control(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 		// Nothing to do on initialization
 		if(isInit){
 			for(i=0; i<n->countChildren; ++i){
-				// Set scope to this node
-				scope = n;
 				// Initialize children
 				initialize(n->children[i], indent, outFile, nodes, errBuf);
 			}
@@ -423,6 +402,51 @@ void generate_control(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 		}
 
 		sprintf(errBuf, "FORK statements are not implemented yet :(");
+		break;
+
+	case CONTROL_CNTNU:
+	case CONTROL_BREAK:
+		// Nothing to do on initialization
+		if(isInit){
+			for(i=0; i<n->countChildren; ++i){
+				// Initialize children
+				initialize(n->children[i], indent, outFile, nodes, errBuf);
+			}
+			break;
+		}
+
+		// Just print the keyword and a semicolon
+		lang_c_indent(indent, outFile);
+		fprintf(outFile, "%s;\n", adhoc_nodeWhich_names[n->which]);
+		break;
+
+	case CONTROL_RETRN:
+		// During initialization, set the parent function's datatype
+		if(isInit){
+			for(i=0; i<n->countChildren; ++i){
+				// Initialize children
+				initialize(n->children[i], indent, outFile, nodes, errBuf);
+
+				// Get datatype from child and pass it to the parent function
+				n->dataType = n->children[i]->dataType;
+				if(scope){
+					if(scope->dataType==TYPE_VOID && n->dataType!=TYPE_VOID){
+						scope->dataType = n->dataType;
+					}
+				}
+			}
+			break;
+		}
+
+		// Print the keyword
+		lang_c_indent(indent, outFile);
+		fprintf(outFile, "return ");
+
+		// Generate the children
+		for(i=0; i<n->countChildren; ++i){
+			generate(false, n->children[i], 0, outFile, nodes, errBuf);
+		}
+		fprintf(outFile, ";\n");
 		break;
 	}
 }

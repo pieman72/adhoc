@@ -143,7 +143,7 @@ pull:
 .PHONY: diff
 diff: clean
 	@echo "$(LC1)-- Showing Local Diff --$(NORMAL)"
-	@git diff | /usr/share/vim/vim72/macros/less.sh
+	@git diff | /usr/share/vim/vim74/macros/less.sh
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 
 .PHONY: merge
