@@ -62,7 +62,7 @@ install: adhoc modules
 	if [ -d $$ADHOC_LIB_PATH'/adhoc' ]; then\
 		echo "Library path exists. Will not touch it.";\
 	else\
-		echo 'Creating ADHOC library directory at: $(LC2)'$$ADHOC_LIB_PATH'/adhoc$(NORMAL)';\
+		echo 'Creating ADHOC library dir at: $(LC2)'$$ADHOC_LIB_PATH'/adhoc$(NORMAL)';\
 		sudo mkdir $$ADHOC_LIB_PATH'/adhoc';\
 	fi;\
 	echo 'Copying ADHOC binary';\
@@ -98,7 +98,7 @@ run: adhoc
 .PHONY: test
 test: adhoc
 	@echo "$(LC4)-- Testing ADHOC --$(NORMAL)"
-	@./adhoc -d programs/test.adh
+	@./adhoc -d -e programs/test.adh
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 
 .PHONY: grind_full

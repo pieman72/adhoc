@@ -22,7 +22,7 @@ void assignScope(ASTnode* v, ASTnode* s){
 	v->scope = s;
 
 	// Only variable declarations need to be added to the parent
-	if(v->which != ASSIGNMENT_EQUAL && v->which != VARIABLE_ASIGN) return;
+	if(v->which != VARIABLE_ASIGN) return;
 
 	// No need to define twice
 	if(v->defined) return;
@@ -98,7 +98,7 @@ void generate_null(bool isInit, ASTnode* n, short indent, FILE* outFile, hashMap
 
 // Generating actions differs most between init and gen, and decl and call
 void generate_action(bool isInit, bool defin, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
-	int i;
+	int i,j;
 	if(!isInit){
 		if(defin) n->which = ACTION_DEFIN;
 		else n->which = ACTION_CALL;
@@ -172,8 +172,17 @@ void generate_action(bool isInit, bool defin, ASTnode* n, short indent, FILE* ou
 			// If it is not time to define this action, skip for now
 			if(!defin) break;
 
-			// Open the body, and print its statements
+			// Open the body block
 			fprintf(outFile, "{\n");
+
+			// Print declarations for any scope vars
+			for(j=0; j<n->countScopeVars; ++j){
+				lang_c_indent(indent+1, outFile);
+				lang_c_printTypeName(n->scopeVars[j], outFile);
+				fprintf(outFile, " %s;\n", n->scopeVars[j]->name);
+			}
+
+			// Print the child statements
 			for(; i<n->countChildren; ++i){
 				// Set scope to this node
 				scope = n;
@@ -293,7 +302,6 @@ void generate_control(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 		for(i=0; i<n->countChildren; ++i){
 			if(n->children[i]->childType != IF) continue;
 			generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
-			if(n->children[i]->nodeType != GROUP) fprintf(outFile, ";\n");
 		}
 
 		// Print the 'else' statements
@@ -306,13 +314,11 @@ void generate_control(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 				needElse = false;
 			}
 			generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
-			if(n->children[i]->nodeType != GROUP) fprintf(outFile, ";\n");
 		}
 
 		// Close the whole 'if' block
 		lang_c_indent(indent, outFile);
 		fprintf(outFile, "}\n");
-		
 		break;
 
 	case CONTROL_LOOP:
@@ -485,21 +491,36 @@ void generate_operator(bool isInit, ASTnode* n, short indent, FILE* outFile, has
 void generate_assignment(bool isInit, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i;
 	if(isInit){
+		// Initialize the children and pass their types to the assignment and storage
 		for(i=0; i<n->countChildren; ++i){
 			initialize(n->children[i], indent, outFile, nodes, errBuf);
 			switch(n->which){
+				// Boolean types
 				case ASSIGNMENT_OR:
 				case ASSIGNMENT_AND:
 				case ASSIGNMENT_NEGPR:
 				case ASSIGNMENT_NEGPS:
 					n->dataType = TYPE_BOOL;
+					n->children[0]->dataType = TYPE_BOOL;
 					break;
-				default:
+				// Unaries
+				case ASSIGNMENT_INCPR:
+				case ASSIGNMENT_INCPS:
+				case ASSIGNMENT_DECPR:
+				case ASSIGNMENT_DECPS:
 					n->dataType = n->children[0]->dataType;
+					break;
+				// Other assignments take their types from second argument
+				default:
+					n->dataType = n->children[1]->dataType;
+					n->children[0]->dataType = n->dataType;
 			}
 		}
 	}else{
-		if(n->childType == STATEMENT) lang_c_indent(indent, outFile);
+		if(n->childType == STATEMENT
+				|| n->childType == IF
+				|| n->childType == ELSE)
+			lang_c_indent(indent, outFile);
 		switch(n->which){
 			case ASSIGNMENT_INCPR:
 			case ASSIGNMENT_DECPR:
@@ -534,7 +555,10 @@ void generate_assignment(bool isInit, ASTnode* n, short indent, FILE* outFile, h
 				);
 				break;
 		}
-		if(n->childType == STATEMENT) fprintf(outFile, ";\n");
+		if(n->childType == STATEMENT
+				|| n->childType == IF
+				|| n->childType == ELSE)
+			fprintf(outFile, ";\n");
 	}
 }
 
@@ -591,7 +615,11 @@ void generate_literal(bool isInit, ASTnode* n, short indent, FILE* outFile, hash
 	}else{
 		switch(n->which){
 			case LITERAL_BOOL:
-				fprintf(outFile, "%s", (atoi(n->value) ? "true" : "false"));
+				if(!strcmp(n->value, "true") || !strcmp(n->value, "false")){
+					fprintf(outFile, "%s", n->value);
+				}else{
+					fprintf(outFile, "%s", (atoi(n->value) ? "true" : "false"));
+				}
 				break;
 			case LITERAL_INT:
 				fprintf(outFile, "%d", atoi(n->value));
