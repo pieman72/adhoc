@@ -116,7 +116,7 @@ grind: adhoc
 .PHONY: push
 push: commit
 	@echo "$(LC4)-- Commit Prepared, Pushing to GitHub --$(NORMAL)"
-	@git push https://github.com/pieman72/adhoc `git rev-parse --abbrev-ref HEAD`
+	@git push origin `git rev-parse --abbrev-ref HEAD`
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 
 .PHONY: commit
@@ -137,7 +137,7 @@ update: pull
 .PHONY: pull
 pull:
 	@echo "$(LC1)-- Fetching Remote Changes --$(NORMAL)"
-	@git pull https://github.com/pieman72/adhoc
+	@git pull origin
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 
 .PHONY: diff
@@ -156,7 +156,7 @@ merge: clean
 	fi;\
 	git checkout master;\
 	git merge $$ADHOC_CURRENT_BRANCH;\
-	git push https://github.com/pieman72/adhoc --delete $$ADHOC_CURRENT_BRANCH
+	git push origin --delete $$ADHOC_CURRENT_BRANCH
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 
 .PHONY: branch

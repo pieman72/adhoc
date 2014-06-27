@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include "hashmap.h"
 #include "adhoc.h"
- 
+
 // Report error messages for parsing, validation, and generation
 int yyerror(const char *str){
 	fprintf(
@@ -19,10 +19,21 @@ int yyerror(const char *str){
 	return 1;
 }
 
+// Report error messages for parsing, validation, and generation
+int yywarn(const char *str){
+	fprintf(
+		stderr
+		,"%sWarning:%s %s\n\n"
+		,(ADHOC_OUPUT_COLOR ? "[38;5;166m" : "")
+		,(ADHOC_OUPUT_COLOR ? "[39m" : "")
+		,str
+	);
+}
+
 // Stop after one input file (usually stdin EOF)
 int yywrap(){
 	return 1;
-} 
+}
 
 // Initialize, parse, validate, generate, clean up
 int main(int argc, char** argv){
@@ -45,7 +56,7 @@ int main(int argc, char** argv){
 	stdout = outRedir;
 	// Clean up parse lookahead
 	yylex_destroy(); // <-- WOW This was hard to find!
-	
+
 	if(parseResult) return yyerror("Parse failed");
 
 	// Validate and optimize the parse tree
@@ -54,11 +65,11 @@ int main(int argc, char** argv){
 
 	// Generate the target translation
 	adhoc_generate(processResult);
-	if(strlen(processResult)) return yyerror(processResult);
+	if(strlen(processResult)) yywarn(processResult);
 
 	// Clean up
 	return adhoc_free();
-} 
+}
 %}
 
 // These are used to return int and string values from the parse

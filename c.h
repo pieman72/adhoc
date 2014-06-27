@@ -93,7 +93,7 @@ void lang_c_indent(short i, FILE* o){
 
 // Generating Null nodes should just throw an error
 void generate_null(bool isInit, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
-	sprintf(errBuf, "Null nodes must be removed before generating.");
+	sprintf(errBuf, "Null nodes should be removed before generating.");
 }
 
 // Generating actions differs most between init and gen, and decl and call
