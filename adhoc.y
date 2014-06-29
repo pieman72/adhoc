@@ -15,8 +15,9 @@ int yyerror(const char *str){
 		,(ADHOC_OUPUT_COLOR ? "[39m" : "")
 		,str
 	);
+	int ret = adhoc_errorNode ? adhoc_errorNode->id : 1;
 	adhoc_free();
-	return adhoc_errorNode ? adhoc_errorNode->id : 1;
+	return ret;
 }
 
 // Report error messages for parsing, validation, and generation
@@ -41,6 +42,7 @@ int main(int argc, char** argv){
 	// A buffer for reporting errors
 	char processResult[80];
 	processResult[0] = '\0';
+	adhoc_errorNode = NULL;
 
 	// Read in configuration files, and language packs
 	adhoc_init(argc, argv, processResult);
@@ -68,8 +70,10 @@ int main(int argc, char** argv){
 	adhoc_generate(processResult);
 	if(strlen(processResult)) yywarn(processResult);
 
-	// Clean up
-	return adhoc_free();
+	// Clean up and return
+	int ret = adhoc_errorNode ? adhoc_errorNode->id : 0;
+	adhoc_free();
+	return ret;
 }
 %}
 

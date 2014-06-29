@@ -319,7 +319,6 @@ void adhoc_init(int argc, char** argv, char* errBuf){
 	// We're ready to parse. Set up the data structures
 	nodeMap = hashMap_create(&adhoc_hashNode, ADHOC_ESTIMATED_NODE_COUNT);
 	readNode = adhoc_createBlankNode();
-	adhoc_errorNode = NULL;
 	return;
 }
 
@@ -381,7 +380,6 @@ int adhoc_free(){
 	hashMap_destroy(nodeMap, adhoc_destroyNode);
 	hashMap_destroy(moduleMap, adhoc_destroyItemLocation);
 	adhoc_destroyNode(readNode);
-	return adhoc_errorNode ? adhoc_errorNode->id : 0;
 }
 
 #endif
