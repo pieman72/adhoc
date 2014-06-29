@@ -104,13 +104,13 @@ test: adhoc
 .PHONY: grind_full
 grind_full: adhoc
 	@echo "$(LC4)-- Testing ADHOC --$(NORMAL)"
-	@valgrind -v --leak-check=full --show-reachable=yes ./adhoc programs/test.adh
+	@valgrind -v --leak-check=full --show-reachable=yes --track-origins=yes ./adhoc programs/test.adh
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 
 .PHONY: grind
 grind: adhoc
 	@echo "$(LC4)-- Testing ADHOC --$(NORMAL)"
-	@valgrind -v --leak-check=full --show-reachable=yes ./adhoc programs/test.adh 2>&1 | grep '\(LEAK SUMMARY\)\|\(All heap blocks were freed\)\|\(ERROR SUMMARY\)' | sed 's/\(0 errors from 0 contexts\|no leaks are possible\)/$(LC3)\1$(NORMAL)/'
+	@valgrind -v --leak-check=full --show-reachable=yes --track-origins=yes ./adhoc programs/test.adh 2>&1 | grep '\(LEAK SUMMARY\)\|\(All heap blocks were freed\)\|\(ERROR SUMMARY\)' | sed 's/\(0 errors from 0 contexts\|no leaks are possible\)/$(LC3)\1$(NORMAL)/'
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 
 .PHONY: push

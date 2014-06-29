@@ -213,11 +213,18 @@ typedef struct ASTnode {
 // Allocate memory for a blank node
 ASTnode* adhoc_createBlankNode(){
 	ASTnode* ret = (ASTnode*) malloc(sizeof(ASTnode));
+	ret->id = 0;
+	ret->parentId = 0;
+	ret->parent = NULL;
+	ret->scope = NULL;
+	ret->nodeType = TYPE_NULL;
+	ret->which = WHICH_NULL;
+	ret->childType = CHILD_NULL;
+	ret->dataType = TYPE_VOID;
+	ret->defined = false;
 	ret->package = NULL;
 	ret->name = NULL;
 	ret->value = NULL;
-	ret->dataType = TYPE_VOID;
-	ret->defined = false;
 	ret->countChildren = 0;
 	ret->sizeChildren = 0;
 	ret->children = NULL;
@@ -272,5 +279,8 @@ hashMap_uint adhoc_hashNode(void* n){
 hashMap_uint adhoc_hashParent(void* n){
 	return (hashMap_uint) ((ASTnode*) n)->parentId;
 }
+
+// Track errors in order to report them
+ASTnode* adhoc_errorNode;
 
 #endif

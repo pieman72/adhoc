@@ -16,7 +16,7 @@ int yyerror(const char *str){
 		,str
 	);
 	adhoc_free();
-	return 1;
+	return adhoc_errorNode ? adhoc_errorNode->id : 1;
 }
 
 // Report error messages for parsing, validation, and generation
@@ -28,6 +28,7 @@ int yywarn(const char *str){
 		,(ADHOC_OUPUT_COLOR ? "[39m" : "")
 		,str
 	);
+	return adhoc_errorNode ? adhoc_errorNode->id : 1;
 }
 
 // Stop after one input file (usually stdin EOF)

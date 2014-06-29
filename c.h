@@ -16,8 +16,27 @@ int countFuncs, sizeFuncs;
 void initialize(ASTnode*, short, FILE*, hashMap*, char*);
 void generate(bool, ASTnode*, short, FILE*, hashMap*, char*);
 
+// Find the scope where a variable name v was first defined above scope s
+ASTnode* findScope(char* v, ASTnode* s){
+	int i;
+	while(1){
+		for(i=0; i<s->countScopeVars; ++i){
+			if(!strcmp(v, s->scopeVars[i]->name)) return s->scopeVars[i];
+		}
+		if(!s->scope) return NULL;
+		s = s->scope;
+	}
+}
+
 // Assigns scope of v to s
 void assignScope(ASTnode* v, ASTnode* s){
+	// See if the scope was already set
+	ASTnode* def = findScope(v->name, s);
+	if(def){
+		v->scope = def->scope;
+		return;
+	}
+
 	// Set the scope pointer in v
 	v->scope = s;
 
@@ -39,18 +58,6 @@ void assignScope(ASTnode* v, ASTnode* s){
 	}
 	// Add the node to its parent
 	s->scopeVars[s->countScopeVars++] = v;
-}
-
-// Find the scope where a variable name v was first defined above scope s
-ASTnode* findScope(char* v, ASTnode* s){
-	int i;
-	while(1){
-		for(i=0; i<s->countScopeVars; ++i){
-			if(!strcmp(v, s->scopeVars[i]->name)) return s->scopeVars[i];
-		}
-		if(!s->scope) return NULL;
-		s = s->scope;
-	}
 }
 
 // C names for data types
@@ -93,6 +100,7 @@ void lang_c_indent(short i, FILE* o){
 
 // Generating Null nodes should just throw an error
 void generate_null(bool isInit, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
+	adhoc_errorNode = n->parent;
 	sprintf(errBuf, "Null nodes should be removed before generating.");
 }
 
