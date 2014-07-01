@@ -115,23 +115,23 @@ child_type	: T_3BYTE {
 				readNode->childType = $<intVal>$;
 			};
 node_pkg	: T_STRING {
-				int len = strlen($<strVal>$)-2;
-				if(!strcmp($<strVal>$, "\"NULL\"")) len = 0;
+				int len = strlen($<strVal>$);
+				if(!strcmp($<strVal>$, "NULL")) len = 0;
 				readNode->package = malloc(len+1);
-				strncpy(readNode->package, ($<strVal>$+1), len);
+				strncpy(readNode->package, ($<strVal>$), len);
 				readNode->package[len] = '\0';
 			};
 node_name	: T_STRING {
-				int len = strlen($<strVal>$)-2;
-				if(!strcmp($<strVal>$, "\"NULL\"")) len = 0;
+				int len = strlen($<strVal>$);
+				if(!strcmp($<strVal>$, "NULL")) len = 0;
 				readNode->name = malloc(len+1);
-				strncpy(readNode->name, ($<strVal>$+1), len);
+				strncpy(readNode->name, ($<strVal>$), len);
 				readNode->name[len] = '\0';
 			};
 node_val	: T_STRING {
-				int len = strlen($<strVal>$)-2;
-				if(!strcmp($<strVal>$, "\"NULL\"")) len = 0;
+				int len = strlen($<strVal>$);
+				if(!strcmp($<strVal>$, "NULL")) len = 0;
 				readNode->value = malloc(len+1);
-				strncpy(readNode->value, ($<strVal>$+1), len);
+				strncpy(readNode->value, ($<strVal>$), len);
 				readNode->value[len] = '\0';
 			};
