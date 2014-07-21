@@ -5,6 +5,7 @@
 #include "hashmap.h"
 #include "adhoc_types.h"
 #include "c.h"
+#include "javascript.h"
 
 // An enumeration of config file sections
 typedef enum {
@@ -70,15 +71,21 @@ void adhoc_printNode(ASTnode* n, int d){
 // A walkable name checker
 void adhoc_renameNode(ASTnode* n, int d){
 	char* p;
-	while(p = strchr(n->name, ' ')){
-		*p = '_';
-	}
+	while(p = strchr(n->package, ' ')) *p = '_';
+	while(p = strchr(n->name, ' ')) *p = '_';
 	if(!strcmp(n->package, "System")){
 		char* buf = malloc(strlen(n->name)+1);
 		strcpy(buf, n->name);
-		n->name = realloc(n->name, strlen(n->name)+7);
-		strcpy(n->name, "adhoc_");
-		strcpy(n->name+6, buf);
+		char* libraryPrepend;
+		if(!strcmp(ADHOC_TARGET_LANGUAGE, "c")){
+			libraryPrepend = "adhoc_";
+		}else if(!strcmp(ADHOC_TARGET_LANGUAGE, "javascript")){
+			libraryPrepend = "Adhoc.";
+		}
+		int prependLen = strlen(libraryPrepend);
+		n->name = realloc(n->name, strlen(n->name)+prependLen+1);
+		strcpy(n->name, libraryPrepend);
+		strcpy(n->name+prependLen, buf);
 		free(buf);
 	}
 }
@@ -180,7 +187,7 @@ void adhoc_handleConfigVariable(char* var, char* val, char* errBuf){
 			return;
 		}
 	}
-	if(!strcmp(var, "ADHOC_TARGET_LANGUAGE")){
+	if(!strcmp(var, "ADHOC_TARGET_LANGUAGE") && !strlen(ADHOC_TARGET_LANGUAGE)){
 		strncpy(ADHOC_TARGET_LANGUAGE, val, 29);
 		return;
 	}
@@ -222,7 +229,6 @@ void adhoc_init(int argc, char** argv, char* errBuf){
 		strcpy(ADHOC_CONFIG_LOCATION, "/usr/lib/adhoc/adhoc.ini");
 	}
 	memset(ADHOC_TARGET_LANGUAGE, 0, 30);
-	ADHOC_TARGET_LANGUAGE[0] = 'c';
 
 	// Handle command line arguments
 	int i;
@@ -369,10 +375,17 @@ void adhoc_validate(char* errBuf){
 
 // Generate the target language code
 void adhoc_generate(char* errBuf){
-//	TODO: ADHOC_TARGET_LANGUAGE
-	lang_c_init(ASTroot, stdout, nodeMap, ADHOC_EXECUTABLE, errBuf);
-	printf("\n");
-	lang_c_gen(ASTroot, stdout, nodeMap, ADHOC_EXECUTABLE, errBuf);
+	if(!strcmp(ADHOC_TARGET_LANGUAGE, "c")){
+		lang_c_init(ASTroot, stdout, nodeMap, ADHOC_EXECUTABLE, errBuf);
+		printf("\n");
+		lang_c_gen(ASTroot, stdout, nodeMap, ADHOC_EXECUTABLE, errBuf);
+	}else if(!strcmp(ADHOC_TARGET_LANGUAGE, "javascript")){
+		lang_javascript_init(ASTroot, stdout, nodeMap, ADHOC_EXECUTABLE, errBuf);
+		printf("\n");
+		lang_javascript_gen(ASTroot, stdout, nodeMap, ADHOC_EXECUTABLE, errBuf);
+	}else{
+		sprintf(errBuf, "Target language \"%s\" not recognized", ADHOC_TARGET_LANGUAGE);
+	}
 }
 
 // Clean up ADHOC
