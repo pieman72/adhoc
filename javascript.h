@@ -684,7 +684,13 @@ void lang_javascript_init(ASTnode* n, FILE* outFile, hashMap* nodes, bool exec, 
 	sizeFuncs = 2;
 	functions = realloc(functions, sizeFuncs * sizeof(ASTnode*));
 	if(exec){
-		//fprintf(outFile, "#include <libadhoc.h>\n");
+		fprintf(outFile, "(function(){\n");
+		fprintf(outFile, "var req = new XMLHttpRequest(); req.open('GET', './libadhoc.js', false); req.send();\n");
+		fprintf(outFile, "if(req.status == 200) return eval(req.responseText);\n");
+		fprintf(outFile, "var req = new XMLHttpRequest(); req.open('GET', 'https://raw.githubusercontent.com/pieman72/adhoc/libadhoc.js', false); req.send();\n");
+		fprintf(outFile, "if(req.status == 200) return eval(req.responseText);\n");
+		fprintf(outFile, "alert('Could not load ADHOC library file.');\n");
+		fprintf(outFile, "})();\n");
 	}
 	lang_javascript_initialize(n, 0, outFile, nodes, errBuf);
 }
