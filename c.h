@@ -62,35 +62,7 @@ void lang_c_assignScope(ASTnode* v, ASTnode* s){
 
 // C names for data types
 void lang_c_printTypeName(ASTnode* n, FILE* o){
-	switch(n->dataType){
-	case TYPE_NULL:
-		fprintf(o, "void");
-		break;
-	case TYPE_BOOL:
-		fprintf(o, "bool");
-		break;
-	case TYPE_INT:
-		fprintf(o, "int");
-		break;
-	case TYPE_FLOAT:
-		fprintf(o, "float");
-		break;
-	case TYPE_STRNG:
-		fprintf(o, "char*");
-		break;
-	case TYPE_ARRAY:
-		fprintf(o, "<<ARRAY>>");
-		break;
-	case TYPE_HASH:
-		fprintf(o, "<<HASH>>");
-		break;
-	case TYPE_STRCT:
-		fprintf(o, "<<STRUCT>>");
-		break;
-	case TYPE_ACTN:
-		fprintf(o, "<<ACTION>>");
-		break;
-	}
+	fprintf(o, "%s", adhoc_dataType_names[n->dataType]);
 }
 
 // Indentation function
@@ -221,12 +193,14 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 						case TYPE_INT: fprintf(outFile, "%%d"); break;
 						case TYPE_FLOAT: fprintf(outFile, "%%f"); break;
 						case TYPE_STRNG: fprintf(outFile, "%%s"); break;
-						default: sprintf(
-							errBuf
-							,"Node %d: Value not acceptable for printing %d"
-							,n->children[i]->id
-							,n->children[i]->dataType
-						);
+						default:
+							adhoc_errorNode = n->children[i];
+							sprintf(
+								errBuf
+								,"Node %d: Datatype not acceptable for printing: %s"
+								,n->children[i]->id
+								,adhoc_dataType_names[n->children[i]->dataType]
+							);
 					}
 				}
 				fprintf(outFile, "\", ");
@@ -724,6 +698,12 @@ void lang_c_gen(ASTnode* n, FILE* outFile, hashMap* nodes, bool exec, char* errB
 		lang_c_generate(true, functions[i], 0, outFile, nodes, errBuf);
 	}
 	if(exec && i){
+		for(i=0; i<n->countChildren; ++i){
+			if(n->children[i]->childType == PARAMETER){
+				adhoc_errorNode = n;
+				sprintf(errBuf, "If generating an executable in C, main action must not have paramters.");
+			}
+		}
 		fprintf(outFile, "\n// Main function for execution\n");
 		fprintf(outFile, "int main(int argc, char **argv){\n");
 		lang_c_indent(1, outFile);

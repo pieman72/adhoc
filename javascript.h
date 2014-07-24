@@ -135,8 +135,10 @@ void lang_javascript_generate_action(bool isInit, ASTnode* n, short indent, FILE
 		}else{
 			// Leave a comment above the function definition
 			fprintf(outFile, "\n");
-			lang_javascript_indent(indent, outFile);
-			if(n->value && strlen(n->value)) fprintf(outFile, "// %s\n", n->value);
+			if(n->value && strlen(n->value)){
+				lang_javascript_indent(indent, outFile);
+				fprintf(outFile, "// %s\n", n->value);
+			}
 
 			// If a statment, print "function" keyword and name
 			if(n->childType == STATEMENT || n->childType == CHILD_NULL){

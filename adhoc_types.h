@@ -188,6 +188,19 @@ const char* adhoc_nodeChildType_names[] = {
 	,"storage"
 };
 
+// String names for data types
+const char* adhoc_dataType_names[] = {
+	"void"
+	,"bool"
+	,"int"
+	,"float"
+	,"char*"
+	,"<<ARRAY>>"
+	,"<<hash>>"
+	,"<<STRUCT>>"
+	,"<<ACTION>>"
+};
+
 // An abstract syntax tree node for use during parsing
 typedef struct ASTnode {
 	int id;
