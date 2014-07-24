@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <time.h>
 #include "hashmap.h"
 #include "adhoc.h"
 
@@ -44,10 +45,27 @@ int main(int argc, char** argv){
 	processResult[0] = '\0';
 	adhoc_errorNode = NULL;
 
+	// Collect timing data
+	clock_t time_begin
+			,time_init
+			,time_parse
+			,time_validate
+			,time_generate
+			,time_complete;
+	time_begin = clock();
+
 	// Read in configuration files, and language packs
 	adhoc_init(argc, argv, processResult);
 	if(strlen(processResult)) return yyerror(processResult);
 	if(ADHOC_INFO_ONLY) return 0;
+	time_init = clock();
+	if(ADHOC_DEBUG_INFO) fprintf(stderr, "-- %s(time)%s Initialization: %s%.2f%ss --\n"
+		,(ADHOC_OUPUT_COLOR ? "[38;5;241m" : "")
+		,(ADHOC_OUPUT_COLOR ? "[39m" : "")
+		,(ADHOC_OUPUT_COLOR ? "[38;5;196m" : "")
+		,(((float)time_init - (float)time_begin)/1000.0F)
+		,(ADHOC_OUPUT_COLOR ? "[39m" : "")
+	);
 
 	// Parse the input file/stream
 	FILE* outRedir;
@@ -59,20 +77,56 @@ int main(int argc, char** argv){
 	stdout = outRedir;
 	// Clean up parse lookahead
 	yylex_destroy(); // <-- WOW This was hard to find!
-
 	if(parseResult) return yyerror("Parse failed");
+	time_parse = clock();
+	if(ADHOC_DEBUG_INFO) fprintf(stderr, "-- %s(time)%s Parse: %s%.2f%ss --\n"
+		,(ADHOC_OUPUT_COLOR ? "[38;5;241m" : "")
+		,(ADHOC_OUPUT_COLOR ? "[39m" : "")
+		,(ADHOC_OUPUT_COLOR ? "[38;5;196m" : "")
+		,(((float)time_parse - (float)time_init)/1000.0F)
+		,(ADHOC_OUPUT_COLOR ? "[39m" : "")
+	);
 
 	// Validate and optimize the parse tree
 	adhoc_validate(processResult);
 	if(strlen(processResult)) return yyerror(processResult);
+	time_validate = clock();
+	if(ADHOC_DEBUG_INFO) fprintf(stderr, "-- %s(time)%s Validation: %s%.2f%ss --\n"
+		,(ADHOC_OUPUT_COLOR ? "[38;5;241m" : "")
+		,(ADHOC_OUPUT_COLOR ? "[39m" : "")
+		,(ADHOC_OUPUT_COLOR ? "[38;5;196m" : "")
+		,(((float)time_validate - (float)time_parse)/1000.0F)
+		,(ADHOC_OUPUT_COLOR ? "[39m" : "")
+	);
 
 	// Generate the target translation
 	adhoc_generate(processResult);
 	if(strlen(processResult)) yywarn(processResult);
+	time_generate = clock();
+	if(ADHOC_DEBUG_INFO) fprintf(stderr, "-- %s(time)%s Code Generation: %s%.2f%ss --\n"
+		,(ADHOC_OUPUT_COLOR ? "[38;5;241m" : "")
+		,(ADHOC_OUPUT_COLOR ? "[39m" : "")
+		,(ADHOC_OUPUT_COLOR ? "[38;5;196m" : "")
+		,(((float)time_generate - (float)time_validate)/1000.0F)
+		,(ADHOC_OUPUT_COLOR ? "[39m" : "")
+	);
 
 	// Clean up and return
 	int ret = adhoc_errorNode ? adhoc_errorNode->id : 0;
 	adhoc_free();
+	time_complete = clock();
+	if(ADHOC_DEBUG_INFO) fprintf(stderr, "-- %s(time)%s Clean-up: %s%.2f%ss --\n-- %s(time)%s TOTAL: %s%.2f%ss --\n"
+		,(ADHOC_OUPUT_COLOR ? "[38;5;241m" : "")
+		,(ADHOC_OUPUT_COLOR ? "[39m" : "")
+		,(ADHOC_OUPUT_COLOR ? "[38;5;196m" : "")
+		,(((float)time_complete - (float)time_generate)/1000.0F)
+		,(ADHOC_OUPUT_COLOR ? "[39m" : "")
+		,(ADHOC_OUPUT_COLOR ? "[38;5;241m" : "")
+		,(ADHOC_OUPUT_COLOR ? "[39m" : "")
+		,(ADHOC_OUPUT_COLOR ? "[38;5;196m" : "")
+		,(((float)time_complete - (float)time_begin)/1000.0F)
+		,(ADHOC_OUPUT_COLOR ? "[39m" : "")
+	);
 	return ret;
 }
 %}
@@ -93,7 +147,6 @@ int main(int argc, char** argv){
 nodes		: node nodes {
 			}
 			| ;
-
 node		: node_id parent_id node_type which child_type
 			node_pkg node_name node_val {
 				adhoc_insertNode(readNode);
