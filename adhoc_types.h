@@ -82,7 +82,7 @@ typedef enum adhoc_nodeChildType {
 	,ARGUMENT		// 7
 	,PARENT			// 8
 	,CHILD			// 9
-	,MEMBER			// 10
+	,INDEX			// 10
 	,IF				// 11
 	,ELSE			// 12
 	,STORAGE		// 13
@@ -182,7 +182,7 @@ const char* adhoc_nodeChildType_names[] = {
 	,""
 	,"parent"
 	,"child"
-	,"member"
+	,"index"
 	,"if"
 	,"else"
 	,"storage"
@@ -285,12 +285,40 @@ void adhoc_treeWalk(walk_func f, ASTnode* n, int d){
 	}
 }
 
+// Walk an AST in post-order with a function to perform on each node
+void adhoc_treePostWalk(walk_func f, ASTnode* n, int d){
+	int i;
+	for(i=0; i<n->countChildren; ++i){
+		adhoc_treePostWalk(f, n->children[i], d+1);
+	}
+	f(n, d);
+}
+
 // Simple functions for hashing AST nodes
 hashMap_uint adhoc_hashNode(void* n){
 	return (hashMap_uint) ((ASTnode*) n)->id;
 }
 hashMap_uint adhoc_hashParent(void* n){
 	return (hashMap_uint) ((ASTnode*) n)->parentId;
+}
+
+// Resolve compared types for implicit cast
+dataType adhoc_resolveTypes(dataType a, dataType b){
+	// Handle edge cases
+	if(a == b) return a;
+	if(a==TYPE_VOID  || b==TYPE_VOID ) return TYPE_VOID;
+	if(a==TYPE_ACTN  || b==TYPE_ACTN ) return TYPE_VOID;
+	if(a==TYPE_STRCT || b==TYPE_STRCT) return TYPE_VOID;
+	if(a < b) return adhoc_resolveTypes(b, a);
+	if(a==TYPE_ARRAY) return TYPE_VOID;
+
+	// Handle casts
+	if(a==TYPE_HASH  && b==TYPE_ARRAY) return TYPE_HASH;
+	if(a==TYPE_STRNG) return TYPE_STRNG;
+	if(a==TYPE_FLOAT) return TYPE_FLOAT;
+	if(a==TYPE_INT  ) return TYPE_INT;
+	if(a==TYPE_BOOL ) return TYPE_BOOL;
+	return TYPE_VOID;
 }
 
 // Track errors in order to report them

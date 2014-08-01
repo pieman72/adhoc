@@ -90,6 +90,136 @@ void adhoc_renameNode(ASTnode* n, int d){
 	}
 }
 
+// Post-walkable function for determining the data-Type of a node
+void adhoc_determineType(ASTnode* n, int d){
+	int i;
+	switch(n->which){
+	case WHICH_NULL:
+	case GROUP_SERIAL:
+	case CONTROL_IF:
+	case CONTROL_LOOP:
+	case CONTROL_SWITCH:
+	case CONTROL_CASE:
+	case CONTROL_FORK:
+	case CONTROL_CNTNU:
+	case CONTROL_BREAK:
+		n->dataType = TYPE_VOID;
+		break;
+
+	case ACTION_DEFIN:
+		for(i=0; i<n->countChildren; ++i){
+			if(n->children[i]->which != CONTROL_RETRN) continue;
+			n->dataType = n->children[i]->dataType;
+			break;
+		}
+		break;
+
+	case ACTION_CALL:
+		n->dataType = TYPE_VOID;
+// TODO
+		break;
+
+	case CONTROL_RETRN:
+		for(i=0; i<n->countChildren; ++i){
+			if(n->children[i]->dataType != TYPE_VOID){
+				n->dataType = n->children[i]->dataType;
+			}
+		}
+		break;
+
+	case ASSIGNMENT_NEGPR:
+	case ASSIGNMENT_NEGPS:
+	case ASSIGNMENT_OR:
+	case ASSIGNMENT_AND:
+		n->children[0]->dataType = TYPE_BOOL;
+	case OPERATOR_OR:
+	case OPERATOR_AND:
+	case OPERATOR_NOT:
+	case OPERATOR_EQUIV:
+	case OPERATOR_GRTTN:
+	case OPERATOR_LESTN:
+	case OPERATOR_GRTEQ:
+	case OPERATOR_LESEQ:
+	case OPERATOR_NOTEQ:
+	case LITERAL_BOOL:
+		n->dataType = TYPE_BOOL;
+		break;
+
+	case OPERATOR_PLUS:
+	case OPERATOR_MINUS:
+	case OPERATOR_TIMES:
+	case OPERATOR_DIVBY:
+	case OPERATOR_MOD:
+	case OPERATOR_EXP:
+		n->dataType = adhoc_resolveTypes(
+			n->children[0]->dataType
+			,n->children[1]->dataType
+		);
+		break;
+
+	case OPERATOR_ARIND:
+		n->dataType = TYPE_VOID;
+// TODO
+		break;
+
+	case OPERATOR_TRNIF:
+		n->dataType = adhoc_resolveTypes(
+			n->children[1]->dataType
+			,n->children[2]->dataType
+		);
+		break;
+
+	case ASSIGNMENT_INCPR:
+	case ASSIGNMENT_INCPS:
+	case ASSIGNMENT_DECPR:
+	case ASSIGNMENT_DECPS:
+	case VARIABLE_EVAL:
+		n->dataType = TYPE_VOID;
+// TODO
+		n->children[0]->dataType = n->dataType;
+		break;
+
+	case ASSIGNMENT_EQUAL:
+		n->dataType = n->children[1]->dataType;
+		n->children[0]->dataType = n->dataType;
+		break;
+
+	case ASSIGNMENT_PLUS:
+	case ASSIGNMENT_MINUS:
+	case ASSIGNMENT_TIMES:
+	case ASSIGNMENT_DIVBY:
+	case ASSIGNMENT_MOD:
+	case ASSIGNMENT_EXP:
+		n->dataType = n->children[1]->dataType;
+// TODO
+		n->children[0]->dataType = n->dataType;
+		break;
+
+	case VARIABLE_ASIGN:
+		n->dataType = n->children[0]->dataType;
+		break;
+
+	case LITERAL_INT:
+		n->dataType = TYPE_INT;
+		break;
+	case LITERAL_FLOAT:
+		n->dataType = TYPE_FLOAT;
+		break;
+	case LITERAL_STRNG:
+		n->dataType = TYPE_STRNG;
+		break;
+	case LITERAL_ARRAY:
+		n->dataType = TYPE_ARRAY;
+		break;
+	case LITERAL_HASH:
+		n->dataType = TYPE_HASH;
+		break;
+	case LITERAL_STRCT:
+		n->dataType = TYPE_STRCT;
+		break;
+	}
+}
+
 // Simple function for hashing other structs
 hashMap_uint adhoc_hashItemLocation(void* i){
 	return hashMap_hashString(((itemLocation*) i)->item);
@@ -369,8 +499,11 @@ void adhoc_validate(char* errBuf){
 		);
 	}
 
-	// TODO: Actually validate...
+	// Rename system calls, and nodes with spaces in their names
 	adhoc_treeWalk(adhoc_renameNode, ASTroot, 0);
+
+	// Determine node dataTypes
+	adhoc_treePostWalk(adhoc_determineType, ASTroot, 0);
 }
 
 // Generate the target language code

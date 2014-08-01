@@ -40,8 +40,8 @@ void lang_c_assignScope(ASTnode* v, ASTnode* s){
 	// Set the scope pointer in v
 	v->scope = s;
 
-	// Only variable declarations need to be added to the parent
-	if(v->which != VARIABLE_ASIGN) return;
+	// Only certain types need to be added to the parent
+	if(v->which != VARIABLE_ASIGN && v->which != LITERAL_ARRAY) return;
 
 	// No need to define twice
 	if(v->defined) return;
@@ -62,6 +62,27 @@ void lang_c_assignScope(ASTnode* v, ASTnode* s){
 
 // C names for data types
 void lang_c_printTypeName(ASTnode* n, FILE* o){
+	int i;
+	if(n->which == ACTION_DEFIN){
+		for(i=0; i<n->countChildren; ++i){
+			if(n->children[i]->which != CONTROL_RETRN) continue;
+			lang_c_printTypeName(n->children[i], o);
+			return;
+		}
+	}
+	if(n->which == CONTROL_RETRN){
+		lang_c_printTypeName(n->children[0], o);
+		return;
+	}
+	if(n->dataType == TYPE_ARRAY){
+		lang_c_printTypeName(n->children[0]->children[0], o);
+		fprintf(o, "*");
+		return;
+	}
+	if(n->dataType == TYPE_HASH){
+		fprintf(o, "hashMap*");
+		return;
+	}
 	fprintf(o, "%s", adhoc_dataType_names[n->dataType]);
 }
 
@@ -78,7 +99,7 @@ void lang_c_generate_null(bool isInit, ASTnode* n, short indent, FILE* outFile, 
 
 // Generating actions differs most between init and gen, and decl and call
 void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
-	int i,j;
+	int i,j,k;
 	if(!isInit){
 		if(defin) n->which = ACTION_DEFIN;
 		else n->which = ACTION_CALL;
@@ -150,9 +171,30 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 			// Print declarations for any scope vars
 			for(j=0; j<n->countScopeVars; ++j){
 				if(n->scopeVars[j]->childType == PARAMETER) continue;
-				lang_c_indent(indent+1, outFile);
-				lang_c_printTypeName(n->scopeVars[j], outFile);
-				fprintf(outFile, " %s;\n", n->scopeVars[j]->name);
+				if(n->scopeVars[j]->which == LITERAL_ARRAY){
+					// Specially handle declaration of temporaries for array literals
+					lang_c_indent(indent+1, outFile);
+					lang_c_printTypeName(n->scopeVars[j], outFile);
+					fprintf(outFile, " %s = malloc(%d*sizeof("
+						,n->scopeVars[j]->name
+						,n->scopeVars[j]->countChildren
+					);
+					lang_c_printTypeName(n->scopeVars[j]->children[0]->children[0], outFile);
+					fprintf(outFile, "));\n");
+					for(k=0; k<n->scopeVars[j]->countChildren; ++k){
+						lang_c_indent(indent+1, outFile);
+						fprintf(outFile, "%s[%d] = "
+							,n->scopeVars[j]->name
+							,atoi(n->scopeVars[j]->children[k]->value)
+						);
+						lang_c_generate(false, n->scopeVars[j]->children[k]->children[0], -1, outFile, nodes, errBuf);
+						fprintf(outFile, ";\n");
+					}
+				}else{
+					lang_c_indent(indent+1, outFile);
+					lang_c_printTypeName(n->scopeVars[j], outFile);
+					fprintf(outFile, " %s;\n", n->scopeVars[j]->name);
+				}
 			}
 
 			// Print the child statements
@@ -408,14 +450,6 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 			for(i=0; i<n->countChildren; ++i){
 				// Initialize children
 				lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
-
-				// Get datatype from child and pass it to the parent function
-				n->dataType = n->children[i]->dataType;
-				if(scope){
-					if(scope->dataType==TYPE_VOID && n->dataType!=TYPE_VOID){
-						scope->dataType = n->dataType;
-					}
-				}
 			}
 			break;
 		}
@@ -439,16 +473,6 @@ void lang_c_generate_operator(bool isInit, ASTnode* n, short indent, FILE* outFi
 	if(isInit){
 		for(i=0; i<n->countChildren; ++i){
 			lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
-			switch(n->which){
-				case OPERATOR_NOT:
-					n->dataType = TYPE_BOOL;
-					break;
-				case OPERATOR_TRNIF:
-					n->dataType = n->children[1]->dataType;
-					break;
-				default:
-					n->dataType = n->children[0]->dataType;
-			}
 		}
 	}else{
 		if(n->childType == STATEMENT) lang_c_indent(indent, outFile);
@@ -500,27 +524,6 @@ void lang_c_generate_assignment(bool isInit, ASTnode* n, short indent, FILE* out
 		// Initialize the children and pass their types to the assignment and storage
 		for(i=0; i<n->countChildren; ++i){
 			lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
-			switch(n->which){
-				// Boolean types
-				case ASSIGNMENT_OR:
-				case ASSIGNMENT_AND:
-				case ASSIGNMENT_NEGPR:
-				case ASSIGNMENT_NEGPS:
-					n->dataType = TYPE_BOOL;
-					n->children[0]->dataType = TYPE_BOOL;
-					break;
-				// Unaries
-				case ASSIGNMENT_INCPR:
-				case ASSIGNMENT_INCPS:
-				case ASSIGNMENT_DECPR:
-				case ASSIGNMENT_DECPS:
-					n->dataType = n->children[0]->dataType;
-					break;
-				// Other assignments take their types from second argument
-				default:
-					n->dataType = n->children[1]->dataType;
-					n->children[0]->dataType = n->dataType;
-			}
 		}
 	}else{
 		if(n->childType == STATEMENT
@@ -574,14 +577,6 @@ void lang_c_generate_variable(bool isInit, bool defin, ASTnode* n, short indent,
 	if(isInit){
 		for(i=0; i<n->countChildren; ++i){
 			lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
-			if(n->which == VARIABLE_ASIGN && n->dataType == TYPE_VOID){
-				n->dataType = n->children[i]->dataType;
-			}
-		}
-		if(n->which == VARIABLE_EVAL){
-			ASTnode* def;
-			def = lang_c_findScope(n->name, scope);
-			if(def) n->dataType = def->dataType;
 		}
 		if(n->childType == PARAMETER){
 			lang_c_printTypeName(n, outFile);
@@ -609,14 +604,15 @@ void lang_c_generate_variable(bool isInit, bool defin, ASTnode* n, short indent,
 void lang_c_generate_literal(bool isInit, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i;
 	if(isInit){
+		for(i=0; i<n->countChildren; ++i){
+			lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
+		}
 		switch(n->which){
-			case LITERAL_BOOL: n->dataType = TYPE_BOOL; break;
-			case LITERAL_INT: n->dataType = TYPE_INT; break;
-			case LITERAL_FLOAT: n->dataType = TYPE_FLOAT; break;
-			case LITERAL_STRNG: n->dataType = TYPE_STRNG; break;
-			case LITERAL_ARRAY: n->dataType = TYPE_ARRAY; break;
-			case LITERAL_HASH: n->dataType = TYPE_HASH; break;
-			case LITERAL_STRCT: n->dataType = TYPE_STRCT; break;
+			case LITERAL_ARRAY:
+				n->name = malloc(13);
+				snprintf(n->name, 13, "tmp%d", n->id);
+				lang_c_assignScope(n, n->scope);
+				break;
 		}
 	}else{
 		switch(n->which){
@@ -634,10 +630,10 @@ void lang_c_generate_literal(bool isInit, ASTnode* n, short indent, FILE* outFil
 				fprintf(outFile, "%s", n->value);
 				break;
 			case LITERAL_STRNG:
-				fprintf(outFile, "\"%s\"", n->value);
+				fprintf(outFile, "strcpy(malloc(%d), \"%s\")", strlen(n->value)+1, n->value);
 				break;
 			case LITERAL_ARRAY:
-				sprintf(errBuf, "%s", "Printing arrays is not implemented :(");
+				fprintf(outFile, "%s", n->name);
 				break;
 			case LITERAL_HASH:
 				sprintf(errBuf, "%s", "Printing hashes is not implemented :(");
@@ -687,7 +683,7 @@ void lang_c_init(ASTnode* n, FILE* outFile, hashMap* nodes, bool exec, char* err
 	sizeFuncs = 2;
 	functions = realloc(functions, sizeFuncs * sizeof(ASTnode*));
 	if(exec){
-		fprintf(outFile, "#include <libadhoc.h>\n");
+		fprintf(outFile, "#include <stdlib.h>\n#include <string.h>\n#include <libadhoc.h>\n");
 	}
 	lang_c_initialize(n, 0, outFile, nodes, errBuf);
 }
