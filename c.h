@@ -16,50 +16,6 @@ int countFuncs, sizeFuncs;
 void lang_c_initialize(ASTnode*, short, FILE*, hashMap*, char*);
 void lang_c_generate(bool, ASTnode*, short, FILE*, hashMap*, char*);
 
-// Find the scope where a variable name v was first defined above scope s
-ASTnode* lang_c_findScope(char* v, ASTnode* s){
-	int i;
-	while(1){
-		for(i=0; i<s->countScopeVars; ++i){
-			if(!strcmp(v, s->scopeVars[i]->name)) return s->scopeVars[i];
-		}
-		if(!s->scope) return NULL;
-		s = s->scope;
-	}
-}
-
-// Assigns scope of v to s
-void lang_c_assignScope(ASTnode* v, ASTnode* s){
-	// See if the scope was already set
-	ASTnode* def = lang_c_findScope(v->name, s);
-	if(def){
-		v->scope = def->scope;
-		return;
-	}
-
-	// Set the scope pointer in v
-	v->scope = s;
-
-	// Only certain types need to be added to the parent
-	if(v->which != VARIABLE_ASIGN && v->which != LITERAL_ARRAY) return;
-
-	// No need to define twice
-	if(v->defined) return;
-	v->defined = true;
-
-	// If s has no scopeVars, allocate the scopeVars array
-	if(!s->countScopeVars){
-		s->scopeVars = malloc(sizeof(ASTnode*));
-		s->sizeScopeVars = 1;
-	// If s is full of scopeVars, double the scopeVars array
-	}else if(s->countScopeVars == s->sizeScopeVars){
-		s->sizeScopeVars *= 2;
-		s->scopeVars = realloc(s->scopeVars, s->sizeScopeVars*sizeof(ASTnode*));
-	}
-	// Add the node to its parent
-	s->scopeVars[s->countScopeVars++] = v;
-}
-
 // C names for data types
 void lang_c_printTypeName(ASTnode* n, FILE* o){
 	int i;
@@ -72,6 +28,10 @@ void lang_c_printTypeName(ASTnode* n, FILE* o){
 	}
 	if(n->which == CONTROL_RETRN){
 		lang_c_printTypeName(n->children[0], o);
+		return;
+	}
+	if(n->dataType == TYPE_STRNG){
+		fprintf(o, "adhoc_data*");
 		return;
 	}
 	if(n->dataType == TYPE_ARRAY){
@@ -171,7 +131,15 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 			// Print declarations for any scope vars
 			for(j=0; j<n->countScopeVars; ++j){
 				if(n->scopeVars[j]->childType == PARAMETER) continue;
-				if(n->scopeVars[j]->which == LITERAL_ARRAY){
+				if(n->scopeVars[j]->which == LITERAL_STRNG){
+					lang_c_indent(indent+1, outFile);
+					lang_c_printTypeName(n->scopeVars[j], outFile);
+					fprintf(outFile, " %s = adhoc_assignData(adhoc_createData(strcpy(malloc(%d), \"%s\")));\n"
+						,n->scopeVars[j]->name
+						,strlen(n->scopeVars[j]->value)+1
+						,n->scopeVars[j]->value
+					);
+				}else if(n->scopeVars[j]->which == LITERAL_ARRAY){
 					// Specially handle declaration of temporaries for array literals
 					lang_c_indent(indent+1, outFile);
 					lang_c_printTypeName(n->scopeVars[j], outFile);
@@ -287,6 +255,7 @@ void lang_c_generate_group(bool isInit, ASTnode* n, short indent, FILE* outFile,
 // Controls vary greatly
 void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i;
+	bool isComplex;
 	switch(n->which){
 	case CONTROL_IF:
 		// Nothing to do on initialization
@@ -445,24 +414,65 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		break;
 
 	case CONTROL_RETRN:
-		// During initialization, set the parent function's datatype
 		if(isInit){
+			// During initialization, add a return variable to the scope
+			n->name = realloc(n->name, 13);
+			snprintf(n->name, 13, "tmp%d", n->id);
+			adhoc_assignScope(n, n->scope);
+
+			// Initialize children
 			for(i=0; i<n->countChildren; ++i){
-				// Initialize children
 				lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
 			}
 			break;
 		}
 
-		// Print the keyword
+		// Print the return var name
 		lang_c_indent(indent, outFile);
-		fprintf(outFile, "return ");
+		fprintf(outFile, "%s = ", n->name);
+
+		// If returning a complex type, assign a reference to it
+		isComplex = false;
+		switch(n->dataType){
+		case TYPE_STRNG:
+		case TYPE_ARRAY:
+		case TYPE_STRCT:
+			isComplex = true;
+		}
+		if(isComplex) fprintf(outFile, "adhoc_assignData(");
 
 		// Generate the children
 		for(i=0; i<n->countChildren; ++i){
 			lang_c_generate(false, n->children[i], 0, outFile, nodes, errBuf);
 		}
+
+		// Close reference assignment
+		if(isComplex) fprintf(outFile, ")");
 		fprintf(outFile, ";\n");
+
+		// Reduce the ref counts on all complex vars in scope, before returning
+		for(i=0; i<n->scope->countScopeVars; ++i){
+			// Skip the return node itself;
+			if(n->scope->scopeVars[i] == n) continue;
+
+			// Check if a complex type
+			isComplex = false;
+			switch(n->scope->scopeVars[i]->dataType){
+			case TYPE_STRNG:
+			case TYPE_ARRAY:
+			case TYPE_STRCT:
+				isComplex = true;
+			}
+			if(!isComplex) continue;
+
+			// Reduce the reference count
+			lang_c_indent(indent, outFile);
+			fprintf(outFile, "adhoc_unassignData(%s);\n", n->scope->scopeVars[i]->name);
+		}
+
+		// Print the actual return
+		lang_c_indent(indent, outFile);
+		fprintf(outFile, "return %s;\n", n->name);
 		break;
 	}
 }
@@ -520,6 +530,7 @@ void lang_c_generate_operator(bool isInit, ASTnode* n, short indent, FILE* outFi
 // Generation rules for assignments
 void lang_c_generate_assignment(bool isInit, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i;
+	bool isComplex;
 	if(isInit){
 		// Initialize the children and pass their types to the assignment and storage
 		for(i=0; i<n->countChildren; ++i){
@@ -542,6 +553,19 @@ void lang_c_generate_assignment(bool isInit, ASTnode* n, short indent, FILE* out
 				fprintf(outFile, "%s", adhoc_nodeWhich_names[n->which]);
 				break;
 			case ASSIGNMENT_EQUAL:
+				isComplex = false;
+				switch(n->dataType){
+				case TYPE_STRNG:
+				case TYPE_ARRAY:
+				case TYPE_STRCT:
+					isComplex = true;
+				}
+				lang_c_generate(false, n->children[0], indent+1, outFile, nodes, errBuf);
+				fprintf(outFile, " %s ", adhoc_nodeWhich_names[n->which]);
+				if(isComplex) fprintf(outFile, "adhoc_assignData(");
+				lang_c_generate(false, n->children[1], indent+1, outFile, nodes, errBuf);
+				if(isComplex) fprintf(outFile, ")");
+				break;
 			case ASSIGNMENT_PLUS:
 			case ASSIGNMENT_MINUS:
 			case ASSIGNMENT_TIMES:
@@ -608,11 +632,14 @@ void lang_c_generate_literal(bool isInit, ASTnode* n, short indent, FILE* outFil
 			lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
 		}
 		switch(n->which){
-			case LITERAL_ARRAY:
-				n->name = malloc(13);
-				snprintf(n->name, 13, "tmp%d", n->id);
-				lang_c_assignScope(n, n->scope);
-				break;
+		case LITERAL_STRNG:
+		case LITERAL_ARRAY:
+		case LITERAL_HASH:
+		case LITERAL_STRCT:
+			n->name = realloc(n->name, 13);
+			snprintf(n->name, 13, "tmp%d", n->id);
+			adhoc_assignScope(n, n->scope);
+			break;
 		}
 	}else{
 		switch(n->which){
@@ -630,7 +657,7 @@ void lang_c_generate_literal(bool isInit, ASTnode* n, short indent, FILE* outFil
 				fprintf(outFile, "%s", n->value);
 				break;
 			case LITERAL_STRNG:
-				fprintf(outFile, "strcpy(malloc(%d), \"%s\")", strlen(n->value)+1, n->value);
+				fprintf(outFile, "%s", n->name);
 				break;
 			case LITERAL_ARRAY:
 				fprintf(outFile, "%s", n->name);
@@ -647,10 +674,6 @@ void lang_c_generate_literal(bool isInit, ASTnode* n, short indent, FILE* outFil
 
 // Function to initialize an AST node
 void lang_c_initialize(ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
-	// Assign the scope of this node to the current scope
-	// TODO: Later, this should be done during validation
-	if(scope) lang_c_assignScope(n, scope);
-
 	// Handle different node types
 	switch(n->nodeType){
 		case TYPE_NULL: lang_c_generate_null(true, n, indent, outFile, nodes, errBuf); break;
@@ -690,20 +713,36 @@ void lang_c_init(ASTnode* n, FILE* outFile, hashMap* nodes, bool exec, char* err
 // Hook function for generalized code generation
 void lang_c_gen(ASTnode* n, FILE* outFile, hashMap* nodes, bool exec, char* errBuf){
 	int i;
+	bool isComplex;
 	for(i=0; i<countFuncs; ++i){
 		lang_c_generate(true, functions[i], 0, outFile, nodes, errBuf);
 	}
 	if(exec && i){
+		// Throw a warning if the main action has parameters
 		for(i=0; i<n->countChildren; ++i){
 			if(n->children[i]->childType == PARAMETER){
 				adhoc_errorNode = n;
 				sprintf(errBuf, "If generating an executable in C, main action must not have paramters.");
 			}
 		}
+
+		// Determine whether the main action returns a complex type
+		isComplex = false;
+		switch(n->dataType){
+		case TYPE_STRNG:
+		case TYPE_ARRAY:
+		case TYPE_STRCT:
+			isComplex = true;
+		}
+
+		// To make an executable, we need som boilerplate
 		fprintf(outFile, "\n// Main function for execution\n");
 		fprintf(outFile, "int main(int argc, char **argv){\n");
 		lang_c_indent(1, outFile);
-		fprintf(outFile, "%s();\n", n->name);
+		if(isComplex) fprintf(outFile, "adhoc_unassignData(");
+		fprintf(outFile, "%s()", n->name);
+		if(isComplex) fprintf(outFile, ")");
+		fprintf(outFile, ";\n");
 		lang_c_indent(1, outFile);
 		fprintf(outFile, "return 0;\n");
 		fprintf(outFile, "}\n");

@@ -207,6 +207,7 @@ typedef struct ASTnode {
 	int parentId;
 	struct ASTnode* parent;
 	struct ASTnode* scope;
+	struct ASTnode* reference;
 	nodeType nodeType;
 	nodeWhich which;
 	nodeChildType childType;
@@ -230,6 +231,7 @@ ASTnode* adhoc_createBlankNode(){
 	ret->parentId = 0;
 	ret->parent = NULL;
 	ret->scope = NULL;
+	ret->reference = NULL;
 	ret->nodeType = TYPE_NULL;
 	ret->which = WHICH_NULL;
 	ret->childType = CHILD_NULL;
@@ -319,6 +321,59 @@ dataType adhoc_resolveTypes(dataType a, dataType b){
 	if(a==TYPE_INT  ) return TYPE_INT;
 	if(a==TYPE_BOOL ) return TYPE_BOOL;
 	return TYPE_VOID;
+}
+
+// Find the scope where a variable name v was first defined above scope s
+ASTnode* adhoc_findScope(char* v, ASTnode* s){
+	int i;
+	while(1){
+		for(i=0; i<s->countScopeVars; ++i){
+			if(!strcmp(v, s->scopeVars[i]->name)) return s->scopeVars[i];
+		}
+		if(!s->scope) return NULL;
+		s = s->scope;
+	}
+}
+
+// Assigns scope of n to s
+void adhoc_assignScope(ASTnode* n, ASTnode* s){
+	// See if the scope is a reference to another
+	if(n->which != VARIABLE_ASIGN){
+		ASTnode* ref = adhoc_findScope(n->name, s);
+		if(ref){
+			n->reference = ref;
+			n->scope = ref->scope;
+			return;
+		}
+	}
+
+	// Set the scope pointer in v
+	n->scope = s;
+
+	// Only certain types need to be added to the parent
+	if(	   n->which != CONTROL_RETRN
+		&& n->which != VARIABLE_ASIGN
+		&& n->which != LITERAL_STRNG
+		&& n->which != LITERAL_ARRAY
+		&& n->which != LITERAL_HASH
+		&& n->which != LITERAL_STRCT
+	) return;
+
+	// No need to define twice
+	if(n->defined) return;
+	n->defined = true;
+
+	// If s has no scopeVars, allocate the scopeVars array
+	if(!s->countScopeVars){
+		s->scopeVars = malloc(sizeof(ASTnode*));
+		s->sizeScopeVars = 1;
+	// If s is full of scopeVars, double the scopeVars array
+	}else if(s->countScopeVars == s->sizeScopeVars){
+		s->sizeScopeVars *= 2;
+		s->scopeVars = realloc(s->scopeVars, s->sizeScopeVars*sizeof(ASTnode*));
+	}
+	// Add the node to its parent
+	s->scopeVars[s->countScopeVars++] = n;
 }
 
 // Track errors in order to report them

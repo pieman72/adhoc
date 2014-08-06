@@ -92,6 +92,10 @@ void adhoc_renameNode(ASTnode* n, int d){
 
 // Post-walkable function for determining the data-Type of a node
 void adhoc_determineType(ASTnode* n, int d){
+	if(n->reference){
+		n->dataType = n->reference->dataType;
+		return;
+	}
 	int i;
 	switch(n->which){
 	case WHICH_NULL:
@@ -173,7 +177,6 @@ void adhoc_determineType(ASTnode* n, int d){
 	case ASSIGNMENT_INCPS:
 	case ASSIGNMENT_DECPR:
 	case ASSIGNMENT_DECPS:
-	case VARIABLE_EVAL:
 		n->dataType = TYPE_VOID;
 // TODO
 		n->children[0]->dataType = n->dataType;
@@ -196,7 +199,10 @@ void adhoc_determineType(ASTnode* n, int d){
 		break;
 
 	case VARIABLE_ASIGN:
-		n->dataType = n->children[0]->dataType;
+		break;
+
+	case VARIABLE_EVAL:
+// TODO: Get type from reference
 		break;
 
 	case LITERAL_INT:
@@ -485,6 +491,13 @@ void adhoc_insertNode(ASTnode* n){
 	}
 	// Add the node to its parent
 	parent->children[parent->countChildren++] = n;
+
+	// Determine the node's scope
+	if(parent->which==ACTION_DEFIN){
+		adhoc_assignScope(n, parent);
+	}else if(parent->scope){
+		adhoc_assignScope(n, parent->scope);
+	}
 }
 
 // Validate and optimize the abstract syntax tree
@@ -498,6 +511,8 @@ void adhoc_validate(char* errBuf){
 			,(ADHOC_OUPUT_COLOR ? "[39m" : "")
 		);
 	}
+
+	// Determine scopes for all nodes
 
 	// Rename system calls, and nodes with spaces in their names
 	adhoc_treeWalk(adhoc_renameNode, ASTroot, 0);
