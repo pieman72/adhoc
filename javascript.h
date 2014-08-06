@@ -17,50 +17,6 @@ bool isExec;
 void lang_javascript_initialize(ASTnode*, short, FILE*, hashMap*, char*);
 void lang_javascript_generate(bool, ASTnode*, short, FILE*, hashMap*, char*);
 
-// Find the scope where a variable name v was first defined above scope s
-ASTnode* lang_javascript_findScope(char* v, ASTnode* s){
-	int i;
-	while(1){
-		for(i=0; i<s->countScopeVars; ++i){
-			if(!strcmp(v, s->scopeVars[i]->name)) return s->scopeVars[i];
-		}
-		if(!s->scope) return NULL;
-		s = s->scope;
-	}
-}
-
-// Assigns scope of v to s
-void lang_javascript_assignScope(ASTnode* v, ASTnode* s){
-	// See if the scope was already set
-	ASTnode* def = lang_javascript_findScope(v->name, s);
-	if(def){
-		v->scope = def->scope;
-		return;
-	}
-
-	// Set the scope pointer in v
-	v->scope = s;
-
-	// Only variable declarations need to be added to the parent
-	if(v->which != VARIABLE_ASIGN) return;
-
-	// No need to define twice
-	if(v->defined) return;
-	v->defined = true;
-
-	// If s has no scopeVars, allocate the scopeVars array
-	if(!s->countScopeVars){
-		s->scopeVars = malloc(sizeof(ASTnode*));
-		s->sizeScopeVars = 1;
-	// If s is full of scopeVars, double the scopeVars array
-	}else if(s->countScopeVars == s->sizeScopeVars){
-		s->sizeScopeVars *= 2;
-		s->scopeVars = realloc(s->scopeVars, s->sizeScopeVars*sizeof(ASTnode*));
-	}
-	// Add the node to its parent
-	s->scopeVars[s->countScopeVars++] = v;
-}
-
 // C names for data types
 void lang_javascript_printTypeName(ASTnode* n, FILE* o){
 	switch(n->dataType){
@@ -179,6 +135,7 @@ void lang_javascript_generate_action(bool isInit, ASTnode* n, short indent, FILE
 			// Print declarations for any scope vars
 			for(j=0; j<n->countScopeVars; ++j){
 				if(n->scopeVars[j]->childType == PARAMETER) continue;
+				if(n->scopeVars[j]->which != VARIABLE_ASIGN) continue;
 				lang_javascript_indent(indent+1, outFile);
 				fprintf(outFile, "var %s;\n", n->scopeVars[j]->name);
 			}
@@ -586,7 +543,7 @@ void lang_javascript_generate_variable(bool isInit, bool call, ASTnode* n, short
 		}
 		if(n->which == VARIABLE_EVAL){
 			ASTnode* def;
-			def = lang_javascript_findScope(n->name, scope);
+			def = adhoc_findScope(n->name, scope);
 			if(def) n->dataType = def->dataType;
 		}
 	}else{
@@ -649,10 +606,6 @@ void lang_javascript_generate_literal(bool isInit, ASTnode* n, short indent, FIL
 
 // Function to initialize an AST node
 void lang_javascript_initialize(ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
-	// Assign the scope of this node to the current scope
-	// TODO: Later, this should be done during validation
-	if(scope) lang_javascript_assignScope(n, scope);
-
 	// Handle different node types
 	switch(n->nodeType){
 		case TYPE_NULL: lang_javascript_generate_null(true, n, indent, outFile, nodes, errBuf); break;

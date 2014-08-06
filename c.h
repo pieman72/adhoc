@@ -60,6 +60,7 @@ void lang_c_generate_null(bool isInit, ASTnode* n, short indent, FILE* outFile, 
 // Generating actions differs most between init and gen, and decl and call
 void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i,j,k;
+	bool isComplex;
 	if(!isInit){
 		if(defin) n->which = ACTION_DEFIN;
 		else n->which = ACTION_CALL;
@@ -171,6 +172,25 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 				scope = n;
 				// Generate children
 				lang_c_generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
+			}
+
+			// Reduce the ref counts on all complex vars in scope, before ending
+			if(n->children[n->countChildren-1]->which != CONTROL_RETRN){
+				for(i=0; i<n->countScopeVars; ++i){
+					// Check if a complex type
+					isComplex = false;
+					switch(n->scopeVars[i]->dataType){
+					case TYPE_STRNG:
+					case TYPE_ARRAY:
+					case TYPE_STRCT:
+						isComplex = true;
+					}
+					if(!isComplex) continue;
+
+					// Reduce the reference count
+					lang_c_indent(indent+1, outFile);
+					fprintf(outFile, "adhoc_unassignData(%s);\n", n->scopeVars[i]->name);
+				}
 			}
 
 			// Close the function body
@@ -657,7 +677,7 @@ void lang_c_generate_literal(bool isInit, ASTnode* n, short indent, FILE* outFil
 				fprintf(outFile, "%s", n->value);
 				break;
 			case LITERAL_STRNG:
-				fprintf(outFile, "%s", n->name);
+				fprintf(outFile, "(char*)adhoc_getData(%s)", n->name);
 				break;
 			case LITERAL_ARRAY:
 				fprintf(outFile, "%s", n->name);
