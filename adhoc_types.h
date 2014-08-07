@@ -195,8 +195,8 @@ const char* adhoc_dataType_names[] = {
 	,"int"
 	,"float"
 	,"char*"
-	,"<<ARRAY>>"
-	,"<<hash>>"
+	,"void*"
+	,"hashMap*"
 	,"<<STRUCT>>"
 	,"<<ACTION>>"
 };
@@ -222,6 +222,9 @@ typedef struct ASTnode {
 	unsigned short countScopeVars;
 	unsigned short sizeScopeVars;
 	struct ASTnode** scopeVars;
+	unsigned short countCmplxVals;
+	unsigned short sizeCmplxVals;
+	struct ASTnode** cmplxVals;
 } ASTnode;
 
 // Allocate memory for a blank node
@@ -246,6 +249,9 @@ ASTnode* adhoc_createBlankNode(){
 	ret->countScopeVars = 0;
 	ret->sizeScopeVars = 0;
 	ret->scopeVars = NULL;
+	ret->countCmplxVals = 0;
+	ret->sizeCmplxVals = 0;
+	ret->cmplxVals = NULL;
 	return ret;
 }
 
@@ -258,6 +264,7 @@ void adhoc_destroyNode(void* v){
 	free(n->value);
 	free(n->children);
 	free(n->scopeVars);
+	free(n->cmplxVals);
 	free(n);
 }
 
@@ -349,6 +356,27 @@ void adhoc_assignScope(ASTnode* n, ASTnode* s){
 
 	// Set the scope pointer in v
 	n->scope = s;
+
+	// If complex, assign to nearest statement ancestor
+	if(n->nodeType == LITERAL && (
+			n->dataType==TYPE_ARRAY
+			|| n->dataType==TYPE_HASH
+			|| n->dataType==TYPE_STRCT
+		)){
+		ASTnode* stmt = n->parent;
+		while(stmt->childType != STATEMENT) stmt = stmt->parent;
+		// If stmt has no cmplxVals, allocate the cmplxVals array
+		if(!stmt->countCmplxVals){
+			stmt->cmplxVals = malloc(sizeof(ASTnode*));
+			stmt->sizeCmplxVals = 1;
+		// If stmt is full of cmplxVals, double the cmplxVals array
+		}else if(stmt->countCmplxVals == stmt->sizeCmplxVals){
+			stmt->sizeCmplxVals *= 2;
+			stmt->cmplxVals = realloc(stmt->cmplxVals, stmt->sizeCmplxVals*sizeof(ASTnode*));
+		}
+		// Add the node to stmt
+		stmt->cmplxVals[stmt->countCmplxVals++] = n;
+	}
 
 	// Only certain types need to be added to the parent
 	if(	   n->which != CONTROL_RETRN

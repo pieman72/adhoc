@@ -30,17 +30,8 @@ void lang_c_printTypeName(ASTnode* n, FILE* o){
 		lang_c_printTypeName(n->children[0], o);
 		return;
 	}
-	if(n->dataType == TYPE_STRNG){
+	if(n->dataType==TYPE_STRNG || n->dataType==TYPE_ARRAY || n->dataType==TYPE_HASH){
 		fprintf(o, "adhoc_data*");
-		return;
-	}
-	if(n->dataType == TYPE_ARRAY){
-		lang_c_printTypeName(n->children[0]->children[0], o);
-		fprintf(o, "*");
-		return;
-	}
-	if(n->dataType == TYPE_HASH){
-		fprintf(o, "hashMap*");
 		return;
 	}
 	fprintf(o, "%s", adhoc_dataType_names[n->dataType]);
@@ -135,7 +126,7 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 				if(n->scopeVars[j]->which == LITERAL_STRNG){
 					lang_c_indent(indent+1, outFile);
 					lang_c_printTypeName(n->scopeVars[j], outFile);
-					fprintf(outFile, " %s = adhoc_assignData(adhoc_createData(strcpy(malloc(%d), \"%s\")));\n"
+					fprintf(outFile, " %s = adhoc_referenceData(adhoc_createData(DATA_STRING, strcpy(malloc(%d), \"%s\"), DATA_VOID, 0));\n"
 						,n->scopeVars[j]->name
 						,strlen(n->scopeVars[j]->value)+1
 						,n->scopeVars[j]->value
@@ -144,21 +135,26 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 					// Specially handle declaration of temporaries for array literals
 					lang_c_indent(indent+1, outFile);
 					lang_c_printTypeName(n->scopeVars[j], outFile);
-					fprintf(outFile, " %s = malloc(%d*sizeof("
+					fprintf(outFile, " %s = adhoc_referenceData(adhoc_createData(DATA_ARRAY, malloc(%d*sizeof("
 						,n->scopeVars[j]->name
 						,n->scopeVars[j]->countChildren
 					);
 					lang_c_printTypeName(n->scopeVars[j]->children[0]->children[0], outFile);
-					fprintf(outFile, "));\n");
-					for(k=0; k<n->scopeVars[j]->countChildren; ++k){
-						lang_c_indent(indent+1, outFile);
-						fprintf(outFile, "%s[%d] = "
-							,n->scopeVars[j]->name
-							,atoi(n->scopeVars[j]->children[k]->value)
-						);
-						lang_c_generate(false, n->scopeVars[j]->children[k]->children[0], -1, outFile, nodes, errBuf);
-						fprintf(outFile, ";\n");
+					char* dt;
+					switch(n->scopeVars[j]->children[0]->children[0]->dataType){
+					case TYPE_BOOL: dt = "DATA_BOOL"; break;
+					case TYPE_INT: dt = "DATA_INT"; break;
+					case TYPE_FLOAT: dt = "DATA_FLOAT"; break;
+					case TYPE_STRNG: dt = "DATA_STRING"; break;
+					case TYPE_ARRAY: dt = "DATA_ARRAY"; break;
+					case TYPE_HASH: dt = "DATA_HASH"; break;
+					case TYPE_STRCT: dt = "DATA_STRUCT"; break;
+					default: dt = "DATA_VOID"; break;
 					}
+					fprintf(outFile, ")), %s, %d));\n"
+						,dt
+						,n->scopeVars[j]->countChildren
+					);
 				}else{
 					lang_c_indent(indent+1, outFile);
 					lang_c_printTypeName(n->scopeVars[j], outFile);
@@ -182,6 +178,7 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 					switch(n->scopeVars[i]->dataType){
 					case TYPE_STRNG:
 					case TYPE_ARRAY:
+					case TYPE_HASH:
 					case TYPE_STRCT:
 						isComplex = true;
 					}
@@ -451,23 +448,12 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		lang_c_indent(indent, outFile);
 		fprintf(outFile, "%s = ", n->name);
 
-		// If returning a complex type, assign a reference to it
-		isComplex = false;
-		switch(n->dataType){
-		case TYPE_STRNG:
-		case TYPE_ARRAY:
-		case TYPE_STRCT:
-			isComplex = true;
-		}
-		if(isComplex) fprintf(outFile, "adhoc_assignData(");
-
 		// Generate the children
 		for(i=0; i<n->countChildren; ++i){
 			lang_c_generate(false, n->children[i], 0, outFile, nodes, errBuf);
 		}
 
-		// Close reference assignment
-		if(isComplex) fprintf(outFile, ")");
+		// Close return var assignment
 		fprintf(outFile, ";\n");
 
 		// Reduce the ref counts on all complex vars in scope, before returning
@@ -480,6 +466,7 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 			switch(n->scope->scopeVars[i]->dataType){
 			case TYPE_STRNG:
 			case TYPE_ARRAY:
+			case TYPE_HASH:
 			case TYPE_STRCT:
 				isComplex = true;
 			}
@@ -577,12 +564,13 @@ void lang_c_generate_assignment(bool isInit, ASTnode* n, short indent, FILE* out
 				switch(n->dataType){
 				case TYPE_STRNG:
 				case TYPE_ARRAY:
+				case TYPE_HASH:
 				case TYPE_STRCT:
 					isComplex = true;
 				}
 				lang_c_generate(false, n->children[0], indent+1, outFile, nodes, errBuf);
 				fprintf(outFile, " %s ", adhoc_nodeWhich_names[n->which]);
-				if(isComplex) fprintf(outFile, "adhoc_assignData(");
+				if(isComplex) fprintf(outFile, "adhoc_referenceData(");
 				lang_c_generate(false, n->children[1], indent+1, outFile, nodes, errBuf);
 				if(isComplex) fprintf(outFile, ")");
 				break;
@@ -677,16 +665,24 @@ void lang_c_generate_literal(bool isInit, ASTnode* n, short indent, FILE* outFil
 				fprintf(outFile, "%s", n->value);
 				break;
 			case LITERAL_STRNG:
-				fprintf(outFile, "(char*)adhoc_getData(%s)", n->name);
-				break;
 			case LITERAL_ARRAY:
-				fprintf(outFile, "%s", n->name);
-				break;
 			case LITERAL_HASH:
-				sprintf(errBuf, "%s", "Printing hashes is not implemented :(");
+				;
+				if(n->parent->nodeType == ASSIGNMENT
+						|| n->parent->childType == INDEX
+						|| n->parent->childType == PARAMETER
+						|| n->parent->which == VARIABLE_ASIGN
+						|| n->parent->which == CONTROL_RETRN){
+					fprintf(outFile, "adhoc_referenceData(%s)", n->name);
+				}else{
+					fprintf(outFile, "(%s)adhoc_getData(%s)"
+						,adhoc_dataType_names[n->dataType]
+						,n->name
+					);
+				}
 				break;
 			case LITERAL_STRCT:
-				sprintf(errBuf, "%s", "Printing structs is not implemented :(");
+				sprintf(errBuf, "%s", "Generating structs is not implemented :(");
 				break;
 		}
 	}
@@ -708,6 +704,38 @@ void lang_c_initialize(ASTnode* n, short indent, FILE* outFile, hashMap* nodes, 
 }
 // Function to generate code from an AST node
 void lang_c_generate(bool defin, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
+	int i,j;
+	bool isComplex;
+	if(n->countCmplxVals){
+		for(i=0; i<n->countCmplxVals; ++i){
+			for(j=0; j<n->cmplxVals[i]->countChildren; ++j){
+				isComplex = false;
+				switch(n->cmplxVals[i]->children[j]->children[0]->dataType){
+				case TYPE_STRNG:
+				case TYPE_ARRAY:
+				case TYPE_HASH:
+				case TYPE_STRCT:
+					isComplex = true;
+				}
+				lang_c_indent(indent, outFile);
+				fprintf(outFile, "adhoc_assignArrayData(%s, %d, "
+					,n->cmplxVals[i]->name
+					,atoi(n->cmplxVals[i]->children[j]->value)
+				);
+				if(!isComplex) fprintf(outFile, "NULL, ");
+				lang_c_generate(
+					false
+					,n->cmplxVals[i]->children[j]->children[0]
+					,-1
+					,outFile
+					,nodes
+					,errBuf
+				);
+				if(isComplex) fprintf(outFile, ", 0");
+				fprintf(outFile, ");\n");
+			}
+		}
+	}
 	switch(n->nodeType){
 		case TYPE_NULL: lang_c_generate_null(false, n, indent, outFile, nodes, errBuf); break;
 		case ACTION: lang_c_generate_action(false, defin, n, indent, outFile, nodes, errBuf); break;
@@ -751,6 +779,7 @@ void lang_c_gen(ASTnode* n, FILE* outFile, hashMap* nodes, bool exec, char* errB
 		switch(n->dataType){
 		case TYPE_STRNG:
 		case TYPE_ARRAY:
+		case TYPE_HASH:
 		case TYPE_STRCT:
 			isComplex = true;
 		}

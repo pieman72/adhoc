@@ -100,7 +100,7 @@ void lang_javascript_generate_action(bool isInit, ASTnode* n, short indent, FILE
 			if(n->childType == STATEMENT || n->childType == CHILD_NULL){
 				lang_javascript_indent(indent, outFile);
 				if(isExec){
-					fprintf(outFile, "%s.%s = function(", n->package, n->name);
+					fprintf(outFile, "%s.%s = %s.%s || function(", n->package, n->name, n->package, n->name);
 				}else{
 					fprintf(outFile, "function %s(", n->name);
 				}
