@@ -592,7 +592,12 @@ void lang_javascript_generate_literal(bool isInit, ASTnode* n, short indent, FIL
 				fprintf(outFile, "\"%s\"", n->value);
 				break;
 			case LITERAL_ARRAY:
-				sprintf(errBuf, "%s", "Printing arrays is not implemented :(");
+				fprintf(outFile, "[");
+				for(i=0; i<n->countChildren; ++i){
+					if(i) fprintf(outFile, ", ");
+					lang_javascript_generate(false, n->children[i]->children[0], -1, outFile, nodes, errBuf);
+				}
+				fprintf(outFile, "]");
 				break;
 			case LITERAL_HASH:
 				sprintf(errBuf, "%s", "Printing hashes is not implemented :(");
