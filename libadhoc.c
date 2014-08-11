@@ -48,7 +48,7 @@ void adhoc_assignArrayData(adhoc_data* d, int i, void* item, float primVal){
 }
 
 // Remove a reference to a referenced data struct and delete it if last
-void adhoc_unassignData(adhoc_data* d){
+void adhoc_unreferenceData(adhoc_data* d){
 	if(!d || --d->refs > 0) return;
 	int i, cleared;
 	switch(d->type){
@@ -71,7 +71,7 @@ void adhoc_unassignData(adhoc_data* d){
 			for(i=0,cleared=0; i<d->sizeData&&cleared<d->countData; ++i){
 				adhoc_data* item = ((adhoc_data**)d->data)[i];
 				if(!item) continue;
-				adhoc_unassignData(item);
+				adhoc_unreferenceData(item);
 				++cleared;
 			}
 		}

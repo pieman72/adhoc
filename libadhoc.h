@@ -33,7 +33,7 @@ adhoc_data* adhoc_referenceData(adhoc_data* d);
 void adhoc_assignArrayData(adhoc_data* d, int i, void* item, float primVal);
 
 // Remove a reference to a referenced data struct and delete it if last
-void adhoc_unassignData(adhoc_data* d);
+void adhoc_unreferenceData(adhoc_data* d);
 
 // Get the data from a referenced data struct
 void* adhoc_getData(adhoc_data* d);

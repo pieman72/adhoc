@@ -198,7 +198,7 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 
 					// Reduce the reference count
 					lang_c_indent(indent+1, outFile);
-					fprintf(outFile, "adhoc_unassignData(%s);\n", n->scopeVars[i]->name);
+					fprintf(outFile, "adhoc_unreferenceData(%s);\n", n->scopeVars[i]->name);
 				}
 			}
 
@@ -489,7 +489,7 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 
 			// Reduce the reference count
 			lang_c_indent(indent, outFile);
-			fprintf(outFile, "adhoc_unassignData(%s);\n", n->scope->scopeVars[i]->name);
+			fprintf(outFile, "adhoc_unreferenceData(%s);\n", n->scope->scopeVars[i]->name);
 		}
 
 		// Print the actual return
@@ -807,7 +807,7 @@ void lang_c_gen(ASTnode* n, FILE* outFile, hashMap* nodes, bool exec, char* errB
 		fprintf(outFile, "\n// Main function for execution\n");
 		fprintf(outFile, "int main(int argc, char **argv){\n");
 		lang_c_indent(1, outFile);
-		if(isComplex) fprintf(outFile, "adhoc_unassignData(");
+		if(isComplex) fprintf(outFile, "adhoc_unreferenceData(");
 		fprintf(outFile, "%s()", n->name);
 		if(isComplex) fprintf(outFile, ")");
 		fprintf(outFile, ";\n");
