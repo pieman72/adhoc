@@ -177,9 +177,7 @@ void adhoc_determineType(ASTnode* n, int d){
 	case ASSIGNMENT_INCPS:
 	case ASSIGNMENT_DECPR:
 	case ASSIGNMENT_DECPS:
-		n->dataType = TYPE_VOID;
-// TODO
-		n->children[0]->dataType = n->dataType;
+		n->dataType = n->children[0]->dataType;
 		break;
 
 	case ASSIGNMENT_EQUAL:
