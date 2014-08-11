@@ -38,6 +38,12 @@ void adhoc_unassignData(adhoc_data* d);
 // Get the data from a referenced data struct
 void* adhoc_getData(adhoc_data* d);
 
+// Create a new string and return its reference
+adhoc_data* adhoc_createString(char* s);
+
+// Create a new array and return its reference
+adhoc_data* adhoc_createArray(adhoc_dataType t, int n, short s);
+
 // Format and print arguments
 void adhoc_print(char*, ...);
 

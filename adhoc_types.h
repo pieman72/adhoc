@@ -201,6 +201,19 @@ const char* adhoc_dataType_names[] = {
 	,"<<ACTION>>"
 };
 
+// Default values for data types
+const char* adhoc_dataType_defaults[] = {
+	"NULL"
+	,"false"
+	,"0"
+	,"0"
+	,"\"\""
+	,"NULL"
+	,"NULL"
+	,"NULL"
+	,"NULL"
+};
+
 // An abstract syntax tree node for use during parsing
 typedef struct ASTnode {
 	int id;

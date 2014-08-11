@@ -37,6 +37,11 @@ void lang_c_printTypeName(ASTnode* n, FILE* o){
 	fprintf(o, "%s", adhoc_dataType_names[n->dataType]);
 }
 
+// C default values for data types
+void lang_c_printTypeDefault(ASTnode* n, FILE* o){
+	fprintf(o, "%s", adhoc_dataType_defaults[n->dataType]);
+}
+
 // Indentation function
 void lang_c_indent(short i, FILE* o){
 	if(i>=0) fprintf(o, "%.*s", i, "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t");
@@ -121,26 +126,24 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 			fprintf(outFile, "{\n");
 
 			// Print declarations for any scope vars
+			char* dt;
 			for(j=0; j<n->countScopeVars; ++j){
+				// Skip parameters
 				if(n->scopeVars[j]->childType == PARAMETER) continue;
-				if(n->scopeVars[j]->which == LITERAL_STRNG){
+
+				// Handle different datatypes differently
+				switch(n->scopeVars[j]->which){
+				case LITERAL_STRNG:
 					lang_c_indent(indent+1, outFile);
 					lang_c_printTypeName(n->scopeVars[j], outFile);
-					fprintf(outFile, " %s = adhoc_referenceData(adhoc_createData(DATA_STRING, strcpy(malloc(%d), \"%s\"), DATA_VOID, 0));\n"
+					fprintf(outFile, " %s = adhoc_createString(\"%s\");\n"
 						,n->scopeVars[j]->name
-						,strlen(n->scopeVars[j]->value)+1
 						,n->scopeVars[j]->value
 					);
-				}else if(n->scopeVars[j]->which == LITERAL_ARRAY){
+					break;
+
+				case LITERAL_ARRAY:
 					// Specially handle declaration of temporaries for array literals
-					lang_c_indent(indent+1, outFile);
-					lang_c_printTypeName(n->scopeVars[j], outFile);
-					fprintf(outFile, " %s = adhoc_referenceData(adhoc_createData(DATA_ARRAY, malloc(%d*sizeof("
-						,n->scopeVars[j]->name
-						,n->scopeVars[j]->countChildren
-					);
-					lang_c_printTypeName(n->scopeVars[j]->children[0]->children[0], outFile);
-					char* dt;
 					switch(n->scopeVars[j]->children[0]->children[0]->dataType){
 					case TYPE_BOOL: dt = "DATA_BOOL"; break;
 					case TYPE_INT: dt = "DATA_INT"; break;
@@ -151,14 +154,23 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 					case TYPE_STRCT: dt = "DATA_STRUCT"; break;
 					default: dt = "DATA_VOID"; break;
 					}
-					fprintf(outFile, ")), %s, %d));\n"
+					lang_c_indent(indent+1, outFile);
+					lang_c_printTypeName(n->scopeVars[j], outFile);
+					fprintf(outFile, " %s = adhoc_createArray(%s, %d, sizeof("
+						,n->scopeVars[j]->name
 						,dt
 						,n->scopeVars[j]->countChildren
 					);
-				}else{
+					lang_c_printTypeName(n->scopeVars[j]->children[0]->children[0], outFile);
+					fprintf(outFile, "));\n");
+					break;
+
+				default:
 					lang_c_indent(indent+1, outFile);
 					lang_c_printTypeName(n->scopeVars[j], outFile);
-					fprintf(outFile, " %s;\n", n->scopeVars[j]->name);
+					fprintf(outFile, " %s = ", n->scopeVars[j]->name);
+					lang_c_printTypeDefault(n->scopeVars[j], outFile);
+					fprintf(outFile, ";\n");
 				}
 			}
 
@@ -246,7 +258,10 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 		fprintf(outFile, ")");
 
 		// If this is the end of a statement, add a semicolon
-		if(n->childType == STATEMENT){
+		if(n->childType == STATEMENT
+				|| n->childType == IF
+				|| n->childType == ELSE
+			){
 			fprintf(outFile, ";\n");
 		}
 		break;
@@ -537,7 +552,6 @@ void lang_c_generate_operator(bool isInit, ASTnode* n, short indent, FILE* outFi
 // Generation rules for assignments
 void lang_c_generate_assignment(bool isInit, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i;
-	bool isComplex;
 	if(isInit){
 		// Initialize the children and pass their types to the assignment and storage
 		for(i=0; i<n->countChildren; ++i){
@@ -560,19 +574,9 @@ void lang_c_generate_assignment(bool isInit, ASTnode* n, short indent, FILE* out
 				fprintf(outFile, "%s", adhoc_nodeWhich_names[n->which]);
 				break;
 			case ASSIGNMENT_EQUAL:
-				isComplex = false;
-				switch(n->dataType){
-				case TYPE_STRNG:
-				case TYPE_ARRAY:
-				case TYPE_HASH:
-				case TYPE_STRCT:
-					isComplex = true;
-				}
 				lang_c_generate(false, n->children[0], indent+1, outFile, nodes, errBuf);
 				fprintf(outFile, " %s ", adhoc_nodeWhich_names[n->which]);
-				if(isComplex) fprintf(outFile, "adhoc_referenceData(");
 				lang_c_generate(false, n->children[1], indent+1, outFile, nodes, errBuf);
-				if(isComplex) fprintf(outFile, ")");
 				break;
 			case ASSIGNMENT_PLUS:
 			case ASSIGNMENT_MINUS:
@@ -606,6 +610,7 @@ void lang_c_generate_assignment(bool isInit, ASTnode* n, short indent, FILE* out
 // Generation rules for variables
 void lang_c_generate_variable(bool isInit, bool defin, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i;
+	bool isComplex;
 	if(isInit){
 		for(i=0; i<n->countChildren; ++i){
 			lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
@@ -622,7 +627,20 @@ void lang_c_generate_variable(bool isInit, bool defin, ASTnode* n, short indent,
 		}else if(n->childType == INITIALIZATION){
 			fprintf(outFile, "%s = ", n->name);
 		}else{
-			fprintf(outFile, "%s", n->name);
+			if(n->dataType == TYPE_VOID){
+				adhoc_errorNode = n;
+				sprintf(errBuf, "%s", "Variable used before being assigned a value");
+			}
+			isComplex = false;
+			switch(n->dataType){
+			case TYPE_STRNG:
+			case TYPE_ARRAY:
+			case TYPE_HASH:
+			case TYPE_STRCT:
+				isComplex = true;
+			}
+			if(isComplex && n->childType!=STORAGE) fprintf(outFile, "adhoc_referenceData(%s)", n->name);
+			else fprintf(outFile, "%s", n->name);
 		}
 		if(n->childType != PARAMETER || !defin){
 			for(i=0; i<n->countChildren; ++i){
@@ -635,6 +653,7 @@ void lang_c_generate_variable(bool isInit, bool defin, ASTnode* n, short indent,
 // Generation rules for literals
 void lang_c_generate_literal(bool isInit, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i;
+	bool isComplex;
 	if(isInit){
 		for(i=0; i<n->countChildren; ++i){
 			lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
@@ -667,7 +686,6 @@ void lang_c_generate_literal(bool isInit, ASTnode* n, short indent, FILE* outFil
 			case LITERAL_STRNG:
 			case LITERAL_ARRAY:
 			case LITERAL_HASH:
-				;
 				if(n->parent->nodeType == ASSIGNMENT
 						|| n->parent->childType == INDEX
 						|| n->parent->childType == PARAMETER
@@ -682,6 +700,7 @@ void lang_c_generate_literal(bool isInit, ASTnode* n, short indent, FILE* outFil
 				}
 				break;
 			case LITERAL_STRCT:
+				adhoc_errorNode = n;
 				sprintf(errBuf, "%s", "Generating structs is not implemented :(");
 				break;
 		}

@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <string.h>
 #include "hashmap.h"
 #include "libadhoc.h"
 
@@ -89,6 +90,26 @@ void adhoc_unassignData(adhoc_data* d){
 // Get the data from a referenced data struct
 void* adhoc_getData(adhoc_data* d){
 	return d->data;
+}
+
+// Create a new string and return its reference
+adhoc_data* adhoc_createString(char* s){
+	return adhoc_referenceData(adhoc_createData(
+		DATA_STRING
+		,strcpy(malloc(strlen(s)+1), s)
+		,DATA_VOID
+		,0
+	));
+}
+
+// Create a new array and return its reference
+adhoc_data* adhoc_createArray(adhoc_dataType t, int n, short s){
+	return adhoc_referenceData(adhoc_createData(
+		DATA_ARRAY
+		,malloc(n * s)
+		,t
+		,n
+	));
 }
 
 // Format-print arguments
