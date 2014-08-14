@@ -92,11 +92,6 @@ void adhoc_renameNode(ASTnode* n, int d, char* errBuf){
 
 // Post-walkable function for determining the data-Type of a node
 void adhoc_determineType(ASTnode* n, int d, char* errBuf){
-	if(n->reference){
-		n->dataType = n->reference->dataType;
-		n->childDataType = n->reference->childDataType;
-		return;
-	}
 	int i;
 	switch(n->which){
 	case WHICH_NULL:
@@ -115,6 +110,7 @@ void adhoc_determineType(ASTnode* n, int d, char* errBuf){
 		for(i=0; i<n->countChildren; ++i){
 			if(n->children[i]->which != CONTROL_RETRN) continue;
 			n->dataType = n->children[i]->dataType;
+			n->childDataType = n->children[i]->childDataType;
 			break;
 		}
 		break;
@@ -128,6 +124,7 @@ void adhoc_determineType(ASTnode* n, int d, char* errBuf){
 		for(i=0; i<n->countChildren; ++i){
 			if(n->children[i]->dataType != TYPE_VOID){
 				n->dataType = n->children[i]->dataType;
+				n->childDataType = n->children[i]->childDataType;
 			}
 		}
 		break;
@@ -200,8 +197,10 @@ void adhoc_determineType(ASTnode* n, int d, char* errBuf){
 	case ASSIGNMENT_DIVBY:
 	case ASSIGNMENT_MOD:
 	case ASSIGNMENT_EXP:
-		n->dataType = n->children[1]->dataType;
-// TODO
+		n->dataType = adhoc_resolveTypes(
+			n->children[0]->dataType
+			,n->children[1]->dataType
+		);
 		n->children[0]->dataType = n->dataType;
 		break;
 
@@ -213,7 +212,14 @@ void adhoc_determineType(ASTnode* n, int d, char* errBuf){
 		break;
 
 	case VARIABLE_EVAL:
-		// Type is determined above by reference
+		if(n->reference){
+			n->dataType = n->reference->dataType;
+			n->childDataType = n->reference->childDataType;
+			return;
+		}else{
+			adhoc_errorNode = n;
+			sprintf(errBuf, "Variable being accessed before it was given a value.");
+		}
 		break;
 
 	case LITERAL_INT:
@@ -242,9 +248,11 @@ void adhoc_determineType(ASTnode* n, int d, char* errBuf){
 		break;
 	case LITERAL_HASH:
 		n->dataType = TYPE_HASH;
+		// TODO
 		break;
 	case LITERAL_STRCT:
 		n->dataType = TYPE_STRCT;
+		// TODO
 		break;
 	}
 }
