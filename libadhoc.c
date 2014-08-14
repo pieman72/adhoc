@@ -13,7 +13,7 @@ adhoc_data* adhoc_createData(adhoc_dataType t, void* d, adhoc_dataType c, int n)
 	ret->type = t;
 	ret->data = d;
 	ret->dataType = c;
-	ret->countData = n;
+	ret->countData = 0;
 	ret->sizeData = n;
 	return ret;
 }
@@ -26,6 +26,24 @@ adhoc_data* adhoc_referenceData(adhoc_data* d){
 
 // Add an item to a referenced data array struct
 void adhoc_assignArrayData(adhoc_data* d, int i, void* item, float primVal){
+	// If the new index is beyond the bounds of the array, grow the array
+	int newSize = (d->sizeData ? d->sizeData : 1);
+	while(i >= newSize) newSize *= 2;
+	if(newSize > d->sizeData){
+		short s;
+		switch(d->dataType){
+		case DATA_BOOL: s = sizeof(bool); break;
+		case DATA_INT: s = sizeof(int); break;
+		case DATA_FLOAT: s = sizeof(float); break;
+		default:
+			s = sizeof(adhoc_data*);
+		}
+		d->data = realloc(d->data, s*newSize);
+		memset(d->data+d->sizeData, 0, (newSize - d->sizeData)*s);
+		d->sizeData = newSize;
+	}
+
+	// Assign the new value to the index
 	switch(d->dataType){
 	case DATA_VOID:
 		break;
@@ -42,7 +60,11 @@ void adhoc_assignArrayData(adhoc_data* d, int i, void* item, float primVal){
 	case DATA_ARRAY:
 	case DATA_HASH:
 	case DATA_STRUCT:
-		((adhoc_data**)d->data)[i] = (adhoc_data*)item;
+		// If complex, remove a reference to the old item
+		;adhoc_data** ptr = ((adhoc_data**)d->data) + i;
+		if(*ptr) adhoc_unreferenceData(*ptr);
+		else ++d->countData;
+		*ptr = (adhoc_data*)item;
 		break;
 	}
 }
@@ -92,6 +114,20 @@ void* adhoc_getData(adhoc_data* d){
 	return d->data;
 }
 
+// Get the simple data at a particular index of an array
+float adhoc_getSArrayData(adhoc_data* d, int i){
+	// If the index is beyond the bounds of the array, return 0
+	if(i >= d->sizeData) return 0;
+	return ((float*)d->data)[i];
+}
+
+// Get the complex data at a particular index of an array
+adhoc_data* adhoc_getCArrayData(adhoc_data* d, int i){
+	// If the index is beyond the bounds of the array, return 0
+	if(i >= d->sizeData) return NULL;
+	return ((adhoc_data**)d->data)[i];
+}
+
 // Create a new string and return its reference
 adhoc_data* adhoc_createString(char* s){
 	return adhoc_referenceData(adhoc_createData(
@@ -103,10 +139,18 @@ adhoc_data* adhoc_createString(char* s){
 }
 
 // Create a new array and return its reference
-adhoc_data* adhoc_createArray(adhoc_dataType t, int n, short s){
+adhoc_data* adhoc_createArray(adhoc_dataType t, int n){
+	short s;
+	switch(t){
+	case DATA_BOOL: s = sizeof(bool); break;
+	case DATA_INT: s = sizeof(int); break;
+	case DATA_FLOAT: s = sizeof(float); break;
+	default:
+		s = sizeof(adhoc_data*);
+	}
 	return adhoc_referenceData(adhoc_createData(
 		DATA_ARRAY
-		,malloc(n * s)
+		,calloc(n, s)
 		,t
 		,n
 	));

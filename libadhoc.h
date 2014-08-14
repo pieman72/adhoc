@@ -38,11 +38,17 @@ void adhoc_unreferenceData(adhoc_data* d);
 // Get the data from a referenced data struct
 void* adhoc_getData(adhoc_data* d);
 
+// Get the simple data at a particular index of an array
+float adhoc_getSArrayData(adhoc_data* d, int i);
+
+// Get the complex data at a particular index of an array
+adhoc_data* adhoc_getCArrayData(adhoc_data* d, int i);
+
 // Create a new string and return its reference
 adhoc_data* adhoc_createString(char* s);
 
 // Create a new array and return its reference
-adhoc_data* adhoc_createArray(adhoc_dataType t, int n, short s);
+adhoc_data* adhoc_createArray(adhoc_dataType t, int n);
 
 // Format and print arguments
 void adhoc_print(char*, ...);

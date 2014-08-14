@@ -225,6 +225,7 @@ typedef struct ASTnode {
 	nodeWhich which;
 	nodeChildType childType;
 	dataType dataType;
+	dataType childDataType;
 	bool defined;
 	char* package;
 	char* name;
@@ -252,6 +253,7 @@ ASTnode* adhoc_createBlankNode(){
 	ret->which = WHICH_NULL;
 	ret->childType = CHILD_NULL;
 	ret->dataType = TYPE_VOID;
+	ret->childDataType = TYPE_VOID;
 	ret->defined = false;
 	ret->package = NULL;
 	ret->name = NULL;
@@ -296,24 +298,26 @@ const char* adhoc_getNodeSubLabel(ASTnode* n){
 }
 
 // Generic function pointer type for walks of the abstract syntax tree
-typedef void (*walk_func)(ASTnode*, int);
+typedef void (*walk_func)(ASTnode*, int, char*);
 
 // Walk an AST with a function to perform on each node
-void adhoc_treeWalk(walk_func f, ASTnode* n, int d){
-	f(n, d);
+void adhoc_treeWalk(walk_func f, ASTnode* n, int d, char* errBuf){
+	f(n, d, errBuf);
+	if(strlen(errBuf)) return;
 	int i;
 	for(i=0; i<n->countChildren; ++i){
-		adhoc_treeWalk(f, n->children[i], d+1);
+		adhoc_treeWalk(f, n->children[i], d+1, errBuf);
 	}
 }
 
 // Walk an AST in post-order with a function to perform on each node
-void adhoc_treePostWalk(walk_func f, ASTnode* n, int d){
+void adhoc_treePostWalk(walk_func f, ASTnode* n, int d, char* errBuf){
 	int i;
 	for(i=0; i<n->countChildren; ++i){
-		adhoc_treePostWalk(f, n->children[i], d+1);
+		adhoc_treePostWalk(f, n->children[i], d+1, errBuf);
+		if(strlen(errBuf)) return;
 	}
-	f(n, d);
+	f(n, d, errBuf);
 }
 
 // Simple functions for hashing AST nodes

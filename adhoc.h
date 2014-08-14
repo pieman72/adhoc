@@ -53,7 +53,7 @@ bool fileAcc(char* path, char* mode){
 }
 
 // A walkable simple print function
-void adhoc_printNode(ASTnode* n, int d){
+void adhoc_printNode(ASTnode* n, int d, char* errBuf){
 	char* buf = calloc(20, sizeof(char));
 	sprintf(buf, "%%-%ds%%2d %%s%%s (%%s)\n", d*3);
 	fprintf(
@@ -69,7 +69,7 @@ void adhoc_printNode(ASTnode* n, int d){
 }
 
 // A walkable name checker
-void adhoc_renameNode(ASTnode* n, int d){
+void adhoc_renameNode(ASTnode* n, int d, char* errBuf){
 	char* p;
 	while(p = strchr(n->package, ' ')) *p = '_';
 	while(p = strchr(n->name, ' ')) *p = '_';
@@ -91,9 +91,10 @@ void adhoc_renameNode(ASTnode* n, int d){
 }
 
 // Post-walkable function for determining the data-Type of a node
-void adhoc_determineType(ASTnode* n, int d){
+void adhoc_determineType(ASTnode* n, int d, char* errBuf){
 	if(n->reference){
 		n->dataType = n->reference->dataType;
+		n->childDataType = n->reference->childDataType;
 		return;
 	}
 	int i;
@@ -162,8 +163,14 @@ void adhoc_determineType(ASTnode* n, int d){
 		break;
 
 	case OPERATOR_ARIND:
-		n->dataType = TYPE_VOID;
-// TODO
+		// If the array hasn't been given a type, report an error
+		if(n->children[0]->childDataType == TYPE_VOID){
+			adhoc_errorNode = n;
+			sprintf(errBuf, "Array index being accessed before array was given contents.");
+		}
+
+		// Get the type from the array being referenced
+		n->dataType = n->children[0]->childDataType;
 		break;
 
 	case OPERATOR_TRNIF:
@@ -182,7 +189,9 @@ void adhoc_determineType(ASTnode* n, int d){
 
 	case ASSIGNMENT_EQUAL:
 		n->dataType = n->children[1]->dataType;
+		n->childDataType = n->children[1]->childDataType;
 		n->children[0]->dataType = n->dataType;
+		n->children[0]->childDataType = n->childDataType;
 		break;
 
 	case ASSIGNMENT_PLUS:
@@ -197,12 +206,14 @@ void adhoc_determineType(ASTnode* n, int d){
 		break;
 
 	case VARIABLE_ASIGN:
-		if(n->childType==PARAMETER || n->childType==INITIALIZATION)
+		if(n->childType==PARAMETER || n->childType==INITIALIZATION){
 			n->dataType = n->children[0]->dataType;
+			n->childDataType = n->children[0]->childDataType;
+		}
 		break;
 
 	case VARIABLE_EVAL:
-// TODO: Get type from reference
+		// Type is determined above by reference
 		break;
 
 	case LITERAL_INT:
@@ -216,6 +227,18 @@ void adhoc_determineType(ASTnode* n, int d){
 		break;
 	case LITERAL_ARRAY:
 		n->dataType = TYPE_ARRAY;
+		if(n->countChildren){
+			if(atoi(n->children[0]->value)<0){
+				n->childDataType = atoi(n->children[0]->name);
+				n->children[0] = NULL;
+				n->countChildren = 0;
+			}else{
+				n->childDataType = n->children[0]->children[0]->dataType;
+			}
+		}else{
+			adhoc_errorNode = n;
+			sprintf(errBuf, "Literal array not given a child datatype.");
+		}
 		break;
 	case LITERAL_HASH:
 		n->dataType = TYPE_HASH;
@@ -503,22 +526,34 @@ void adhoc_insertNode(ASTnode* n){
 // Validate and optimize the abstract syntax tree
 void adhoc_validate(char* errBuf){
 	if(ADHOC_DEBUG_INFO){
-		adhoc_treeWalk(adhoc_printNode, ASTroot, 0);
+		adhoc_treeWalk(adhoc_printNode, ASTroot, 0, errBuf);
 		fprintf(
 			stderr
 			,"\n\n%s-- Begin Generation --%s\n"
 			,(ADHOC_OUPUT_COLOR ? "[38;5;63m" : "")
 			,(ADHOC_OUPUT_COLOR ? "[39m" : "")
 		);
+		if(strlen(errBuf)) return;
 	}
 
+	// Check child types and counts
+	// TODO
+	if(strlen(errBuf)) return;
+
 	// Determine scopes for all nodes
+	// TODO
+	if(strlen(errBuf)) return;
 
 	// Rename system calls, and nodes with spaces in their names
-	adhoc_treeWalk(adhoc_renameNode, ASTroot, 0);
+	adhoc_treeWalk(adhoc_renameNode, ASTroot, 0, errBuf);
+	if(strlen(errBuf)) return;
 
 	// Determine node dataTypes
-	adhoc_treePostWalk(adhoc_determineType, ASTroot, 0);
+	adhoc_treePostWalk(adhoc_determineType, ASTroot, 0, errBuf);
+	if(strlen(errBuf)) return;
+
+	// Final check for all node info
+	// TODO
 }
 
 // Generate the target language code
