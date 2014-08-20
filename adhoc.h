@@ -109,9 +109,15 @@ void adhoc_determineType(ASTnode* n, int d, char* errBuf){
 	case ACTION_DEFIN:
 		for(i=0; i<n->countChildren; ++i){
 			if(n->children[i]->which != CONTROL_RETRN) continue;
-			n->dataType = n->children[i]->dataType;
-			n->childDataType = n->children[i]->childDataType;
-			break;
+			if(n->dataType != TYPE_VOID){
+				n->dataType = n->children[i]->dataType;
+				n->childDataType = n->children[i]->childDataType;
+			}
+			if(n->children[i]->dataType==TYPE_MIXED || n->dataType!=n->children[i]->dataType){
+				n->dataType = n->children[i]->dataType;
+				n->childDataType = n->children[i]->childDataType;
+				break;
+			}
 		}
 		break;
 
@@ -121,11 +127,9 @@ void adhoc_determineType(ASTnode* n, int d, char* errBuf){
 		break;
 
 	case CONTROL_RETRN:
-		for(i=0; i<n->countChildren; ++i){
-			if(n->children[i]->dataType != TYPE_VOID){
-				n->dataType = n->children[i]->dataType;
-				n->childDataType = n->children[i]->childDataType;
-			}
+		if(n->countChildren){
+			n->dataType = n->children[0]->dataType;
+			n->childDataType = n->children[0]->childDataType;
 		}
 		break;
 
@@ -248,11 +252,9 @@ void adhoc_determineType(ASTnode* n, int d, char* errBuf){
 		break;
 	case LITERAL_HASH:
 		n->dataType = TYPE_HASH;
-		// TODO
 		break;
 	case LITERAL_STRCT:
 		n->dataType = TYPE_STRCT;
-		// TODO
 		break;
 	}
 }

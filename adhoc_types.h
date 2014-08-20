@@ -99,6 +99,7 @@ typedef enum adhoc_dataType {
 	,TYPE_HASH	// 6
 	,TYPE_STRCT	// 7
 	,TYPE_ACTN	// 8
+	,TYPE_MIXED	// 9
 } dataType;
 
 // String names for node types
@@ -199,6 +200,7 @@ const char* adhoc_dataType_names[] = {
 	,"hashMap*"
 	,"<<STRUCT>>"
 	,"<<ACTION>>"
+	,"mixed"
 };
 
 // Default values for data types
@@ -208,6 +210,7 @@ const char* adhoc_dataType_defaults[] = {
 	,"0"
 	,"0"
 	,"\"\""
+	,"NULL"
 	,"NULL"
 	,"NULL"
 	,"NULL"
@@ -331,20 +334,18 @@ hashMap_uint adhoc_hashParent(void* n){
 // Resolve compared types for implicit cast
 dataType adhoc_resolveTypes(dataType a, dataType b){
 	// Handle edge cases
-	if(a==b || b==TYPE_VOID) return a;
-	if(a==TYPE_VOID) return b;
+	if(a==TYPE_MIXED || b==TYPE_MIXED) return TYPE_VOID;
 	if(a==TYPE_ACTN || b==TYPE_ACTN) return TYPE_VOID;
 	if(a==TYPE_STRCT || b==TYPE_STRCT) return TYPE_VOID;
+	if(a==TYPE_VOID || b==TYPE_VOID) return TYPE_VOID;
+	if(a==b) return a;
 	if(a < b) return adhoc_resolveTypes(b, a);
+	if(a==TYPE_HASH && b==TYPE_ARRAY) return TYPE_HASH;
+	if(a==TYPE_HASH) return TYPE_VOID;
 	if(a==TYPE_ARRAY) return TYPE_VOID;
 
 	// Handle casts
-	if(a==TYPE_HASH && b==TYPE_ARRAY) return TYPE_HASH;
-	if(a==TYPE_STRNG) return TYPE_STRNG;
-	if(a==TYPE_FLOAT) return TYPE_FLOAT;
-	if(a==TYPE_INT) return TYPE_INT;
-	if(a==TYPE_BOOL) return TYPE_BOOL;
-	return TYPE_VOID;
+	return a;
 }
 
 // Find the scope where a variable name v was first defined above scope s

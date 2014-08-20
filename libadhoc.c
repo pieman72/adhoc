@@ -100,10 +100,8 @@ void adhoc_unreferenceData(adhoc_data* d){
 		free(d->data);
 		break;
 	case DATA_HASH:
-		// TODO
 		break;
 	case DATA_STRUCT:
-		// TODO
 		break;
 	}
 	free(d);
@@ -158,8 +156,42 @@ adhoc_data* adhoc_createArray(adhoc_dataType t, int n){
 
 // Format-print arguments
 void adhoc_print(char* format, ...){
+	// Initialize arguments
+	bool end;
+	char* prcnt, buf[10];
 	va_list args;
 	va_start(args, format);
-	vprintf(format, args);
+
+	// Iterate through the format string
+	end = !(*format);
+	while(!end){
+		// Find the next format
+		prcnt = strchr(format+1, '%');
+		if(prcnt){
+			strncpy(buf, format, prcnt-format);
+			buf[prcnt-format] = 0;
+		}else{
+			strcpy(buf, format);
+			end = true;
+		}
+
+		// Print the next argument
+		switch(buf[strlen(buf)-1]){
+		case 'f':
+			printf("%f", va_arg(args, double));
+			break;
+		case 's':;
+			adhoc_data* d = va_arg(args, adhoc_data*);
+			printf("%s", (char*)(d->data));
+			adhoc_unreferenceData(d);
+			break;
+		default:
+			va_arg(args, void*);
+			break;
+		}
+		format = prcnt;
+	}
+
+	// End the argument lists
 	va_end(args);
 }
