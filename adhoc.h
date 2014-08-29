@@ -375,7 +375,7 @@ void adhoc_setModuleLocation(char* lang, char* loc, char* errBuf){
 			adhoc_setModuleLocation(lang, p+1, errBuf);
 			return;
 		}
-		sprintf(errBuf, "Module location improperly defined for %-30s", lang);
+		sprintf(errBuf, "Module location improperly set for %-30s", lang);
 		return;
 	}
 	itemLocation* i = malloc(sizeof(itemLocation));

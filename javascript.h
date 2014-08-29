@@ -136,6 +136,7 @@ void lang_javascript_generate_action(bool isInit, ASTnode* n, short indent, FILE
 			for(j=0; j<n->countScopeVars; ++j){
 				if(n->scopeVars[j]->childType == PARAMETER) continue;
 				if(n->scopeVars[j]->which != VARIABLE_ASIGN) continue;
+				if(n->scopeVars[j]->parent->which = ASSIGNMENT_EQUAL) continue;
 				lang_javascript_indent(indent+1, outFile);
 				fprintf(outFile, "var %s;\n", n->scopeVars[j]->name);
 			}
@@ -502,6 +503,9 @@ void lang_javascript_generate_assignment(bool isInit, ASTnode* n, short indent, 
 				fprintf(outFile, "%s", adhoc_nodeWhich_names[n->which]);
 				break;
 			case ASSIGNMENT_EQUAL:
+				if(n->children[0]->which==VARIABLE_ASIGN && n->children[0]->defined){
+					fprintf(outFile, "var ");
+				}
 			case ASSIGNMENT_PLUS:
 			case ASSIGNMENT_MINUS:
 			case ASSIGNMENT_TIMES:
