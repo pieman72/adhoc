@@ -52,8 +52,11 @@ III. Usage
 
 **[Building a Logic File]**
 
-ADHOC's "front-end" provides a graphical interface for expressing
-program logic. It has not yet been inplemented... but I'm on it!
+Currently, the only way to construct an ADHOC logic file is through
+[ADHOC's front-end](https://github.com/pieman72/adhoc_front), which
+provides a graphical interface for expressing program flow. You can
+install the front-end yourself, or you can see it in action
+[here](http://harveyserv.ath.cx/adhoc).
 
 **[Generating Code]**
 
