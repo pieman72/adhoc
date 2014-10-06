@@ -212,6 +212,14 @@ void adhoc_determineType(ASTnode* n, int d, char* errBuf){
 		if(n->childType==PARAMETER || n->childType==INITIALIZATION){
 			n->dataType = n->children[0]->dataType;
 			n->childDataType = n->children[0]->childDataType;
+		}else if(n->childType==STORAGE && (
+				n->parent->which == ASSIGNMENT_INCPR
+				|| n->parent->which == ASSIGNMENT_INCPS
+				|| n->parent->which == ASSIGNMENT_DECPR
+				|| n->parent->which == ASSIGNMENT_DECPS
+			)){
+			n->dataType = n->reference->dataType;
+			n->childDataType = n->reference->childDataType;
 		}
 		break;
 
@@ -219,7 +227,6 @@ void adhoc_determineType(ASTnode* n, int d, char* errBuf){
 		if(n->reference){
 			n->dataType = n->reference->dataType;
 			n->childDataType = n->reference->childDataType;
-			return;
 		}else{
 			adhoc_errorNode = n;
 			sprintf(errBuf, "Variable being accessed before it was given a value.");

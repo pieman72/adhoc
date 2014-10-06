@@ -5,6 +5,9 @@
 #include "hashmap.h"
 #include "adhoc_types.h"
 
+// Keep track of whether we are generating an executable
+bool execMode;
+
 // Keep track of the current scope
 ASTnode* scope;
 
@@ -76,20 +79,22 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 		lang_c_printTypeName(n, outFile);
 		fprintf(outFile, " %s(", n->name);
 
-		// Print the action's parameters
+		// Print the action's parameters if it is not the root during exec mode
 		for(i=0; i<n->countChildren; ++i){
 			if(n->children[i]->childType == PARAMETER){
-				if(i>0) fprintf(outFile, ", ");
-				if(isInit){
-					// Set scope to this node
-					scope = n;
-					// Initialize arguments
-					lang_c_initialize(n->children[i], 0, outFile, nodes, errBuf);
-				}else{
-					// Set scope to this node
-					scope = n;
-					// Generate arguments
-					lang_c_generate(true, n->children[i], 0, outFile, nodes, errBuf);
+				if(n->parent || !execMode){
+					if(i>0) fprintf(outFile, ", ");
+					if(isInit){
+						// Set scope to this node
+						scope = n;
+						// Initialize arguments
+						lang_c_initialize(n->children[i], 0, outFile, nodes, errBuf);
+					}else{
+						// Set scope to this node
+						scope = n;
+						// Generate arguments
+						lang_c_generate(true, n->children[i], 0, outFile, nodes, errBuf);
+					}
 				}
 			}else{
 				break;
@@ -693,11 +698,22 @@ void lang_c_generate_variable(bool isInit, bool defin, ASTnode* n, short indent,
 	int i;
 	bool isComplex;
 	if(isInit){
-		for(i=0; i<n->countChildren; ++i){
-			lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
-		}
-		if(n->childType == PARAMETER){
+		if(defin){
+			lang_c_indent(indent, outFile);
 			lang_c_printTypeName(n, outFile);
+			fprintf(outFile, " %s", n->name);
+			if(n->countChildren){
+				fprintf(outFile, " = ");
+				lang_c_generate(false, n->children[0], indent+1, outFile, nodes, errBuf);
+			}
+			fprintf(outFile, ";\n");
+		}else{
+			for(i=0; i<n->countChildren; ++i){
+				lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
+			}
+			if(n->childType == PARAMETER){
+				lang_c_printTypeName(n, outFile);
+			}
 		}
 	}else{
 		if(n->childType == PARAMETER){
@@ -840,6 +856,7 @@ void lang_c_generate(bool defin, ASTnode* n, short indent, FILE* outFile, hashMa
 
 // Hook function for generalized initialization
 void lang_c_init(ASTnode* n, FILE* outFile, hashMap* nodes, bool exec, char* errBuf){
+	execMode = exec;
 	countFuncs = 0;
 	sizeFuncs = 2;
 	functions = realloc(functions, sizeFuncs * sizeof(ASTnode*));
@@ -852,18 +869,21 @@ void lang_c_init(ASTnode* n, FILE* outFile, hashMap* nodes, bool exec, char* err
 void lang_c_gen(ASTnode* n, FILE* outFile, hashMap* nodes, bool exec, char* errBuf){
 	int i;
 	bool isComplex;
+	if(exec){
+		// Print definitions for global vars
+		if(n->countChildren){
+			fprintf(outFile, "\n// Global variables\n");
+		}
+		for(i=0; i<n->countChildren; ++i){
+			if(n->children[i]->childType == PARAMETER){
+				lang_c_generate_variable(true, true, n->children[i], 0, outFile, nodes, errBuf);
+			}
+		}
+	}
 	for(i=0; i<countFuncs; ++i){
 		lang_c_generate(true, functions[i], 0, outFile, nodes, errBuf);
 	}
 	if(exec && i){
-		// Throw a warning if the main action has parameters
-		for(i=0; i<n->countChildren; ++i){
-			if(n->children[i]->childType == PARAMETER){
-				adhoc_errorNode = n;
-				sprintf(errBuf, "If generating an executable in C, main action must not have paramters.");
-			}
-		}
-
 		// Determine whether the main action returns a complex type
 		isComplex = false;
 		switch(n->dataType){
