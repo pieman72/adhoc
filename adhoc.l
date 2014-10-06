@@ -1,7 +1,11 @@
 %{
 #include <stdio.h>
 #include <string.h>
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-function"
+#pragma clang diagnostic ignored "-Wunneeded-internal-declaration"
 #include "y.tab.h"
+
 extern YYSTYPE yylval;
 char *s, buf[1000];
 %}
@@ -36,3 +40,4 @@ char *s, buf[1000];
 						}
 
 %%
+#pragma clang diagnostic pop

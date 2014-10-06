@@ -7,6 +7,11 @@
 #include "hashmap.h"
 #include "adhoc.h"
 
+// YACC function signatures, to suppress warnings
+int yyparse();
+int yylex_destroy();
+int yylex();
+
 // Report error messages for parsing, validation, and generation
 int yyerror(const char *str){
 	fprintf(

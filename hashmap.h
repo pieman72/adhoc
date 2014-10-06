@@ -14,7 +14,7 @@ typedef struct hashMapItem {
 // A struct to store a hashMap
 typedef struct hashMap {
 	hashMap_uint size;
-	int count;
+	hashMap_uint count;
 	hashMapItem** items;
 	hashMap_uint (*hash)(void*);
 } hashMap;

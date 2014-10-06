@@ -4,6 +4,9 @@
 #include <stdbool.h>
 #include "hashmap.h"
 #include "adhoc_types.h"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma clang diagnostic ignored "-Wswitch"
 
 // Keep track of whether we are generating an executable
 bool execMode;
@@ -58,7 +61,7 @@ void lang_c_generate_null(bool isInit, ASTnode* n, short indent, FILE* outFile, 
 
 // Generating actions differs most between init and gen, and decl and call
 void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
-	int i,j,k;
+	int i,j;
 	bool isComplex;
 	if(!isInit){
 		if(defin) n->which = ACTION_DEFIN;
@@ -750,8 +753,6 @@ void lang_c_generate_variable(bool isInit, bool defin, ASTnode* n, short indent,
 // Generation rules for literals
 void lang_c_generate_literal(bool isInit, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i;
-	bool isComplex;
-	char* dt;
 	if(isInit){
 		// Initialize the children
 		for(i=0; i<n->countChildren; ++i){
@@ -871,7 +872,7 @@ void lang_c_gen(ASTnode* n, FILE* outFile, hashMap* nodes, bool exec, char* errB
 	bool isComplex;
 	if(exec){
 		// Print definitions for global vars
-		if(n->countChildren){
+		if(n->countChildren && n->children[0]->childType == PARAMETER){
 			fprintf(outFile, "\n// Global variables\n");
 		}
 		for(i=0; i<n->countChildren; ++i){
@@ -909,4 +910,5 @@ void lang_c_gen(ASTnode* n, FILE* outFile, hashMap* nodes, bool exec, char* errB
 	free(functions);
 }
 
+#pragma clang diagnostic pop
 #endif

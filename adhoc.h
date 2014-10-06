@@ -6,6 +6,9 @@
 #include "adhoc_types.h"
 #include "c.h"
 #include "javascript.h"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma clang diagnostic ignored "-Wswitch"
 
 // An enumeration of config file sections
 typedef enum {
@@ -71,8 +74,8 @@ void adhoc_printNode(ASTnode* n, int d, char* errBuf){
 // A walkable name checker
 void adhoc_renameNode(ASTnode* n, int d, char* errBuf){
 	char* p;
-	while(p = strchr(n->package, ' ')) *p = '_';
-	while(p = strchr(n->name, ' ')) *p = '_';
+	while((p = strchr(n->package, ' '))) *p = '_';
+	while((p = strchr(n->name, ' '))) *p = '_';
 	if(!strcmp(n->package, "System")){
 		char* buf = malloc(strlen(n->name)+1);
 		strcpy(buf, n->name);
@@ -81,6 +84,8 @@ void adhoc_renameNode(ASTnode* n, int d, char* errBuf){
 			libraryPrepend = "adhoc_";
 		}else if(!strcmp(ADHOC_TARGET_LANGUAGE, "javascript")){
 			libraryPrepend = "Adhoc.";
+		}else{
+			libraryPrepend = "";
 		}
 		int prependLen = strlen(libraryPrepend);
 		n->name = realloc(n->name, strlen(n->name)+prependLen+1);
@@ -448,10 +453,10 @@ void adhoc_init(int argc, char** argv, char* errBuf){
 		}
 
 		// Prepare to read lines of input
-		int len, size;
-		size = 30;
+		int len;
+		size_t size;
 		char* line;
-		line = (char*) malloc(size);
+		line = NULL;
 		config_state confStat;
 		confStat = CONFIG_STATE_NULL;
 		do{
@@ -589,10 +594,11 @@ void adhoc_generate(char* errBuf){
 }
 
 // Clean up ADHOC
-int adhoc_free(){
+void adhoc_free(){
 	hashMap_destroy(nodeMap, adhoc_destroyNode);
 	hashMap_destroy(moduleMap, adhoc_destroyItemLocation);
 	adhoc_destroyNode(readNode);
 }
 
+#pragma clang diagnostic pop
 #endif

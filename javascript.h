@@ -4,6 +4,9 @@
 #include <stdbool.h>
 #include "hashmap.h"
 #include "adhoc_types.h"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma clang diagnostic ignored "-Wswitch"
 
 // Keep track of the current scope
 ASTnode* scope;
@@ -136,7 +139,7 @@ void lang_javascript_generate_action(bool isInit, ASTnode* n, short indent, FILE
 			for(j=0; j<n->countScopeVars; ++j){
 				if(n->scopeVars[j]->childType == PARAMETER) continue;
 				if(n->scopeVars[j]->which != VARIABLE_ASIGN) continue;
-				if(n->scopeVars[j]->parent->which = ASSIGNMENT_EQUAL) continue;
+				if(n->scopeVars[j]->parent->which == ASSIGNMENT_EQUAL) continue;
 				lang_javascript_indent(indent+1, outFile);
 				fprintf(outFile, "var %s;\n", n->scopeVars[j]->name);
 			}
@@ -672,4 +675,5 @@ void lang_javascript_gen(ASTnode* n, FILE* outFile, hashMap* nodes, bool exec, c
 	free(functions);
 }
 
+#pragma clang diagnostic pop
 #endif
