@@ -221,6 +221,7 @@ const char* adhoc_dataType_defaults[] = {
 typedef struct ASTnode {
 	int id;
 	int parentId;
+	int refId;
 	struct ASTnode* parent;
 	struct ASTnode* scope;
 	struct ASTnode* reference;
@@ -249,6 +250,7 @@ ASTnode* adhoc_createBlankNode(){
 	ASTnode* ret = (ASTnode*) malloc(sizeof(ASTnode));
 	ret->id = 0;
 	ret->parentId = 0;
+	ret->refId = 0;
 	ret->parent = NULL;
 	ret->scope = NULL;
 	ret->reference = NULL;

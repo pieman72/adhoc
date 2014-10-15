@@ -7,7 +7,7 @@
 #include "y.tab.h"
 
 extern YYSTYPE yylval;
-char *s, buf[1000];
+char *s, buf[1024];
 %}
 
 %x STRING
