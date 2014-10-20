@@ -25,46 +25,49 @@ adhoc_data* adhoc_referenceData(adhoc_data* d){
 }
 
 // Add an item to a referenced data array struct
-void adhoc_assignArrayData(adhoc_data* d, int i, void* item, float primVal){
+void adhoc_assignArrayData(adhoc_data* arr, int i, void* item, float primVal){
 	// If the new index is beyond the bounds of the array, grow the array
-	int newSize = (d->sizeData ? d->sizeData : 1);
+	int newSize = (arr->sizeData ? arr->sizeData : 1);
 	while(i >= newSize) newSize *= 2;
-	if(newSize > d->sizeData){
+	if(newSize > arr->sizeData){
 		short s;
-		switch(d->dataType){
+		switch(arr->dataType){
 		case DATA_BOOL: s = sizeof(bool); break;
 		case DATA_INT: s = sizeof(int); break;
 		case DATA_FLOAT: s = sizeof(float); break;
 		default:
 			s = sizeof(adhoc_data*);
 		}
-		d->data = realloc(d->data, s*newSize);
-		memset(d->data+d->sizeData, 0, (newSize - d->sizeData)*s);
-		d->sizeData = newSize;
+		arr->data = realloc(arr->data, s*newSize);
+		memset(arr->data+arr->sizeData, 0, (newSize - arr->sizeData)*s);
+		arr->sizeData = newSize;
 	}
 
 	// Assign the new value to the index
-	switch(d->dataType){
+	switch(arr->dataType){
 	case DATA_VOID:
 		break;
 	case DATA_BOOL:
-		((bool*)d->data)[i] = (bool)primVal;
+		((bool*)arr->data)[i] = (bool)primVal;
 		break;
 	case DATA_INT:
-		((int*)d->data)[i] = (int)primVal;
+		((int*)arr->data)[i] = (int)primVal;
 		break;
 	case DATA_FLOAT:
-		((float*)d->data)[i] = (float)primVal;
+		((float*)arr->data)[i] = (float)primVal;
 		break;
 	case DATA_STRING:
 	case DATA_ARRAY:
 	case DATA_HASH:
 	case DATA_STRUCT:
 		// If complex, remove a reference to the old item
-		;adhoc_data** ptr = ((adhoc_data**)d->data) + i;
+		;adhoc_data** ptr = ((adhoc_data**)arr->data) + i;
 		if(*ptr) adhoc_unreferenceData(*ptr);
-		else ++d->countData;
+		else ++arr->countData;
 		*ptr = (adhoc_data*)item;
+
+		// Add a reference to the new item
+		adhoc_referenceData((adhoc_data*)item);
 		break;
 	}
 }
@@ -113,27 +116,27 @@ void* adhoc_getData(adhoc_data* d){
 }
 
 // Get the simple data at a particular index of an array
-float adhoc_getSArrayData(adhoc_data* d, int i){
+float adhoc_getSArrayData(adhoc_data* arr, int i){
 	// If the index is beyond the bounds of the array, return 0
-	if(i >= d->sizeData) return 0;
-	return ((float*)d->data)[i];
+	if(i >= arr->sizeData) return 0;
+	return ((float*)arr->data)[i];
 }
 
 // Get the complex data at a particular index of an array
-adhoc_data* adhoc_getCArrayData(adhoc_data* d, int i){
+adhoc_data* adhoc_getCArrayData(adhoc_data* arr, int i){
 	// If the index is beyond the bounds of the array, return 0
-	if(i >= d->sizeData) return NULL;
-	return ((adhoc_data**)d->data)[i];
+	if(i >= arr->sizeData) return NULL;
+	return ((adhoc_data**)arr->data)[i];
 }
 
 // Create a new string and return its reference
 adhoc_data* adhoc_createString(char* s){
-	return adhoc_referenceData(adhoc_createData(
+	return adhoc_createData(
 		DATA_STRING
 		,strcpy(malloc(strlen(s)+1), s)
 		,DATA_VOID
 		,0
-	));
+	);
 }
 
 // Create a new array and return its reference
@@ -146,12 +149,12 @@ adhoc_data* adhoc_createArray(adhoc_dataType t, int n){
 	default:
 		s = sizeof(adhoc_data*);
 	}
-	return adhoc_referenceData(adhoc_createData(
+	return adhoc_createData(
 		DATA_ARRAY
 		,calloc(n, s)
 		,t
 		,n
-	));
+	);
 }
 
 // Format-print arguments
@@ -177,15 +180,23 @@ void adhoc_print(char* format, ...){
 
 		// Print the next argument
 		switch(buf[strlen(buf)-1]){
+		case 'd':
+			// Fetch a primative
+			printf("%d", va_arg(args, int));
+			break;
 		case 'f':
+			// Fetch a primative
 			printf("%f", va_arg(args, double));
 			break;
 		case 's':;
+			// Fetch a complex item
 			adhoc_data* d = va_arg(args, adhoc_data*);
+			adhoc_referenceData(d);
 			printf("%s", (char*)(d->data));
 			adhoc_unreferenceData(d);
 			break;
 		default:
+			// Handle other cases
 			va_arg(args, void*);
 			break;
 		}

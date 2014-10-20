@@ -36,7 +36,10 @@ void lang_c_printTypeName(ASTnode* n, FILE* o){
 		lang_c_printTypeName(n->children[0], o);
 		return;
 	}
-	if(n->dataType==TYPE_STRNG || n->dataType==TYPE_ARRAY || n->dataType==TYPE_HASH){
+	if(n->dataType==TYPE_STRNG
+			|| n->dataType==TYPE_ARRAY
+			|| n->dataType==TYPE_HASH
+		){
 		fprintf(o, "adhoc_data*");
 		return;
 	}
@@ -91,12 +94,25 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 						// Set scope to this node
 						scope = n;
 						// Initialize arguments
-						lang_c_initialize(n->children[i], 0, outFile, nodes, errBuf);
+						lang_c_initialize(
+							n->children[i]
+							,0
+							,outFile
+							,nodes
+							,errBuf
+						);
 					}else{
 						// Set scope to this node
 						scope = n;
 						// Generate arguments
-						lang_c_generate(true, n->children[i], 0, outFile, nodes, errBuf);
+						lang_c_generate(
+							true
+							,n->children[i]
+							,0
+							,outFile
+							,nodes
+							,errBuf
+						);
 					}
 				}
 			}else{
@@ -122,7 +138,13 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 				// Set scope to this node
 				scope = n;
 				// Initialize children
-				lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
+				lang_c_initialize(
+					n->children[i]
+					,indent
+					,outFile
+					,nodes
+					,errBuf
+				);
 			}
 
 		// Otherwise we print the full function body
@@ -160,7 +182,7 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 					break;
 
 				case LITERAL_ARRAY:
-					// Specially handle declaration of temporaries for array literals
+					// Handle declaration of temporaries for array literals
 					switch(n->scopeVars[j]->childDataType){
 					case TYPE_BOOL: dt = "DATA_BOOL"; break;
 					case TYPE_INT: dt = "DATA_INT"; break;
@@ -173,7 +195,7 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 					}
 					lang_c_indent(indent+1, outFile);
 					lang_c_printTypeName(n->scopeVars[j], outFile);
-					fprintf(outFile, " %s = adhoc_createArray(%s, %d);\n"
+					fprintf(outFile, " %s = adhoc_referenceData(adhoc_createArray(%s, %d));\n"
 						,n->scopeVars[j]->name
 						,dt
 						,n->scopeVars[j]->countChildren
@@ -199,10 +221,17 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 				// Set scope to this node
 				scope = n;
 				// Generate children
-				lang_c_generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
+				lang_c_generate(
+					false
+					,n->children[i]
+					,indent+1
+					,outFile
+					,nodes
+					,errBuf
+				);
 			}
 
-			// Reduce the ref counts on all complex vars in scope, before ending
+			// Reduce the ref counts on all complex vars in scope before ending
 			if(n->children[n->countChildren-1]->which != CONTROL_RETRN){
 				bool derefCommented = false;
 				for(i=0; i<n->countScopeVars; ++i){
@@ -224,11 +253,18 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 					if(!derefCommented){
 						fprintf(outFile, "\n");
 						lang_c_indent(indent+1, outFile);
-						fprintf(outFile, "// Reduce references on complex scope variables\n");
+						fprintf(
+							outFile
+							,"// Reduce references on complex scope vars\n"
+						);
 						derefCommented = true;
 					}
 					lang_c_indent(indent+1, outFile);
-					fprintf(outFile, "adhoc_unreferenceData(%s);\n", n->scopeVars[i]->name);
+					fprintf(
+						outFile
+						,"adhoc_unreferenceData(%s);\n"
+						,n->scopeVars[i]->name
+					);
 				}
 			}
 
@@ -266,7 +302,7 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 							adhoc_errorNode = n->children[i];
 							sprintf(
 								errBuf
-								,"Node %d: Datatype not acceptable for printing: %s"
+								,"Node %d: Datatype not printable: %s"
 								,n->children[i]->id
 								,adhoc_dataType_names[n->children[i]->dataType]
 							);
@@ -278,9 +314,18 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 
 		// Print the action's arguments
 		for(i=0; i<n->countChildren; ++i){
-			if(n->children[i]->childType == ARGUMENT || n->children[i]->childType == PARAMETER){
+			if(n->children[i]->childType == ARGUMENT
+					|| n->children[i]->childType == PARAMETER
+				){
 				if(i>0) fprintf(outFile, ", ");
-				lang_c_generate(false, n->children[i], 0, outFile, nodes, errBuf);
+				lang_c_generate(
+					false
+					,n->children[i]
+					,0
+					,outFile
+					,nodes
+					,errBuf
+				);
 			}
 		}
 
@@ -309,7 +354,14 @@ void lang_c_generate_group(bool isInit, ASTnode* n, short indent, FILE* outFile,
 	}else{
 		// Generate all children in order
 		for(i=0; i<n->countChildren; ++i){
-			lang_c_generate(false, n->children[i], indent, outFile, nodes, errBuf);
+			lang_c_generate(
+				false
+				,n->children[i]
+				,indent
+				,outFile
+				,nodes
+				,errBuf
+			);
 		}
 	}
 }
@@ -324,7 +376,13 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		if(isInit){
 			for(i=0; i<n->countChildren; ++i){
 				// Initialize children
-				lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
+				lang_c_initialize(
+					n->children[i]
+					,indent
+					,outFile
+					,nodes
+					,errBuf
+				);
 			}
 			break;
 		}
@@ -336,7 +394,14 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		// Print the condition
 		for(i=0; i<n->countChildren; ++i){
 			if(n->children[i]->childType == CONDITION){
-				lang_c_generate(false, n->children[i], 0, outFile, nodes, errBuf);
+				lang_c_generate(
+					false
+					,n->children[i]
+					,0
+					,outFile
+					,nodes
+					,errBuf
+				);
 				break;
 			}
 		}
@@ -347,7 +412,14 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		// Print the 'if' statements
 		for(i=0; i<n->countChildren; ++i){
 			if(n->children[i]->childType != IF) continue;
-			lang_c_generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
+			lang_c_generate(
+				false
+				,n->children[i]
+				,indent+1
+				,outFile
+				,nodes
+				,errBuf
+			);
 		}
 
 		// Print the 'else' statements
@@ -359,7 +431,14 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 				fprintf(outFile, "}else{\n");
 				needElse = false;
 			}
-			lang_c_generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
+			lang_c_generate(
+				false
+				,n->children[i]
+				,indent+1
+				,outFile
+				,nodes
+				,errBuf
+			);
 		}
 
 		// Close the whole 'if' block
@@ -372,7 +451,13 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		if(isInit){
 			for(i=0; i<n->countChildren; ++i){
 				// Initialize children
-				lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
+				lang_c_initialize(
+					n->children[i]
+					,indent
+					,outFile
+					,nodes
+					,errBuf
+				);
 			}
 			break;
 		}
@@ -392,7 +477,14 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		for(i=0; i<n->countChildren; ++i){
 			if(n->children[i]->childType == INITIALIZATION){
 				// Generate initialization
-				lang_c_generate(false, n->children[i], 0, outFile, nodes, errBuf);
+				lang_c_generate(
+					false
+					,n->children[i]
+					,0
+					,outFile
+					,nodes
+					,errBuf
+				);
 				break;
 			}
 		}
@@ -402,7 +494,14 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		for(i=0; i<n->countChildren; ++i){
 			if(n->children[i]->childType == CONDITION){
 				// Generate condition
-				lang_c_generate(false, n->children[i], 0, outFile, nodes, errBuf);
+				lang_c_generate(
+					false
+					,n->children[i]
+					,0
+					,outFile
+					,nodes
+					,errBuf
+				);
 				break;
 			}
 		}
@@ -413,7 +512,14 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 			if(n->children[i]->childType == INITIALIZATION) continue;
 			if(n->children[i]->childType == CONDITION) continue;
 			// Generate children
-			lang_c_generate(false, n->children[i], indent+1, outFile, nodes, errBuf);
+			lang_c_generate(
+				false
+				,n->children[i]
+				,indent+1
+				,outFile
+				,nodes
+				,errBuf
+			);
 		}
 
 		// Close the for statement
@@ -426,7 +532,13 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		if(isInit){
 			for(i=0; i<n->countChildren; ++i){
 				// Initialize children
-				lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
+				lang_c_initialize(
+					n->children[i]
+					,indent
+					,outFile
+					,nodes
+					,errBuf
+				);
 			}
 			break;
 		}
@@ -438,7 +550,13 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		// Nothing to do on initialization
 		if(isInit){
 			for(i=0; i<n->countChildren; ++i){
-				lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
+				lang_c_initialize(
+					n->children[i]
+					,indent
+					,outFile
+					,nodes
+					,errBuf
+				);
 			}
 			break;
 		}
@@ -451,7 +569,13 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		if(isInit){
 			for(i=0; i<n->countChildren; ++i){
 				// Initialize children
-				lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
+				lang_c_initialize(
+					n->children[i]
+					,indent
+					,outFile
+					,nodes
+					,errBuf
+				);
 			}
 			break;
 		}
@@ -465,7 +589,13 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		if(isInit){
 			for(i=0; i<n->countChildren; ++i){
 				// Initialize children
-				lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
+				lang_c_initialize(
+					n->children[i]
+					,indent
+					,outFile
+					,nodes
+					,errBuf
+				);
 			}
 			break;
 		}
@@ -483,7 +613,7 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		);
 
 		if(isInit){
-			// During initialization, add a return variable to the scope if needed
+			// During initialization, add a return variable to scope if needed
 			if(retVar){
 				n->name = realloc(n->name, 13);
 				snprintf(n->name, 13, "tmp%d", n->id);
@@ -492,7 +622,13 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 
 			// Initialize children
 			for(i=0; i<n->countChildren; ++i){
-				lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
+				lang_c_initialize(
+					n->children[i]
+					,indent
+					,outFile
+					,nodes
+					,errBuf
+				);
 			}
 			break;
 		}
@@ -505,7 +641,14 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 
 			// Generate the children
 			for(i=0; i<n->countChildren; ++i){
-				lang_c_generate(false, n->children[i], 0, outFile, nodes, errBuf);
+				lang_c_generate(
+					false
+					,n->children[i]
+					,0
+					,outFile
+					,nodes
+					,errBuf
+				);
 			}
 
 			// Close return var assignment
@@ -535,11 +678,18 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 			if(!derefCommented){
 				fprintf(outFile, "\n");
 				lang_c_indent(indent, outFile);
-				fprintf(outFile, "// Reduce references on complex scope variables\n");
+				fprintf(
+					outFile
+					,"// Reduce references on complex scope variables\n"
+				);
 				derefCommented = true;
 			}
 			lang_c_indent(indent, outFile);
-			fprintf(outFile, "adhoc_unreferenceData(%s);\n", n->scope->scopeVars[i]->name);
+			fprintf(
+				outFile
+				,"adhoc_unreferenceData(%s);\n"
+				,n->scope->scopeVars[i]->name
+			);
 		}
 
 		// Print the actual return
@@ -556,7 +706,14 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 				isComplex = true;
 			}
 			if(isComplex) fprintf(outFile, "%s", n->children[0]->name);
-			else lang_c_generate(false, n->children[0], 0, outFile, nodes, errBuf);
+			else lang_c_generate(
+				false
+				,n->children[0]
+				,0
+				,outFile
+				,nodes
+				,errBuf
+			);
 		}
 		fprintf(outFile, ";\n");
 		break;
@@ -813,34 +970,32 @@ void lang_c_initialize(ASTnode* n, short indent, FILE* outFile, hashMap* nodes, 
 void lang_c_generate(bool defin, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i,j;
 	bool isComplex;
-	if(n->countCmplxVals){
-		for(i=0; i<n->countCmplxVals; ++i){
-			for(j=0; j<n->cmplxVals[i]->countChildren; ++j){
-				isComplex = false;
-				switch(n->cmplxVals[i]->children[j]->children[0]->dataType){
-				case TYPE_STRNG:
-				case TYPE_ARRAY:
-				case TYPE_HASH:
-				case TYPE_STRCT:
-					isComplex = true;
-				}
-				lang_c_indent(indent, outFile);
-				fprintf(outFile, "adhoc_assignArrayData(%s, %d, "
-					,n->cmplxVals[i]->name
-					,atoi(n->cmplxVals[i]->children[j]->value)
-				);
-				if(!isComplex) fprintf(outFile, "NULL, ");
-				lang_c_generate(
-					false
-					,n->cmplxVals[i]->children[j]->children[0]
-					,0
-					,outFile
-					,nodes
-					,errBuf
-				);
-				if(isComplex) fprintf(outFile, ", 0");
-				fprintf(outFile, ");\n");
+	for(i=0; i<n->countCmplxVals; ++i){
+		for(j=0; j<n->cmplxVals[i]->countChildren; ++j){
+			isComplex = false;
+			switch(n->cmplxVals[i]->children[j]->children[0]->dataType){
+			case TYPE_STRNG:
+			case TYPE_ARRAY:
+			case TYPE_HASH:
+			case TYPE_STRCT:
+				isComplex = true;
 			}
+			lang_c_indent(indent, outFile);
+			fprintf(outFile, "adhoc_assignArrayData(%s, %d, "
+				,n->cmplxVals[i]->name
+				,atoi(n->cmplxVals[i]->children[j]->value)
+			);
+			if(!isComplex) fprintf(outFile, "NULL, ");
+			lang_c_generate(
+				false
+				,n->cmplxVals[i]->children[j]->children[0]
+				,0
+				,outFile
+				,nodes
+				,errBuf
+			);
+			if(isComplex) fprintf(outFile, ", 0");
+			fprintf(outFile, ");\n");
 		}
 	}
 	switch(n->nodeType){

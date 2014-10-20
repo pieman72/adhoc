@@ -249,17 +249,13 @@ void adhoc_determineType(ASTnode* n, int d, char* errBuf){
 		break;
 	case LITERAL_ARRAY:
 		n->dataType = TYPE_ARRAY;
-		if(n->countChildren){
-			if(atoi(n->children[0]->value)<0){
-				n->childDataType = atoi(n->children[0]->name);
-				n->children[0] = NULL;
-				n->countChildren = 0;
-			}else{
+		if(!n->childDataType){
+			if(n->countChildren){
 				n->childDataType = n->children[0]->children[0]->dataType;
+			}else{
+				adhoc_errorNode = n;
+				sprintf(errBuf, "Literal array not given a child datatype.");
 			}
-		}else{
-			adhoc_errorNode = n;
-			sprintf(errBuf, "Literal array not given a child datatype.");
 		}
 		break;
 	case LITERAL_HASH:

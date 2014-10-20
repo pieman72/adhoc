@@ -152,7 +152,8 @@ int main(int argc, char** argv){
 nodes		: node nodes {
 			}
 			| ;
-node		: node_id parent_id ref_id node_type which child_type data_type
+node		: node_id parent_id ref_id node_type which child_type
+			data_type cdata_type
 			node_pkg node_name node_val {
 				adhoc_insertNode(readNode);
 				readNode = adhoc_createBlankNode();
@@ -177,6 +178,9 @@ child_type	: T_3BYTE {
 			};
 data_type	: T_3BYTE {
 				readNode->dataType = $<intVal>$;
+			};
+cdata_type	: T_3BYTE {
+				readNode->childDataType = $<intVal>$;
 			};
 node_pkg	: T_STRING {
 				int len = strlen($<strVal>$);

@@ -377,6 +377,10 @@ void adhoc_assignScope(ASTnode* n, ASTnode* s){
 	// Set the scope pointer in v
 	n->scope = s;
 
+	// No need to define twice
+	if(n->defined) return;
+	n->defined = true;
+
 	// If complex, assign to nearest statement ancestor
 	if(n->nodeType == LITERAL && (
 			n->dataType==TYPE_ARRAY
@@ -406,10 +410,6 @@ void adhoc_assignScope(ASTnode* n, ASTnode* s){
 		&& n->which != LITERAL_HASH
 		&& n->which != LITERAL_STRCT
 	) return;
-
-	// No need to define twice
-	if(n->defined) return;
-	n->defined = true;
 
 	// If s has no scopeVars, allocate the scopeVars array
 	if(!s->countScopeVars){
