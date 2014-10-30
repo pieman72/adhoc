@@ -114,7 +114,7 @@ grind: adhoc
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 
 .PHONY: push
-push: commit
+push: commit pull
 	@echo "$(LC4)-- Commit Prepared, Pushing to GitHub --$(NORMAL)"
 	@git push origin `git rev-parse --abbrev-ref HEAD`
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"

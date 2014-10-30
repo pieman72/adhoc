@@ -298,6 +298,10 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 						case TYPE_INT: fprintf(outFile, "%%d"); break;
 						case TYPE_FLOAT: fprintf(outFile, "%%f"); break;
 						case TYPE_STRNG: fprintf(outFile, "%%s"); break;
+						case TYPE_ARRAY:
+						case TYPE_HASH:
+						case TYPE_STRCT:
+							fprintf(outFile, "%%_"); break;
 						default:
 							adhoc_errorNode = n->children[i];
 							sprintf(
@@ -896,8 +900,10 @@ void lang_c_generate_variable(bool isInit, bool defin, ASTnode* n, short indent,
 			case TYPE_STRCT:
 				isComplex = true;
 			}
-			if(isComplex && n->childType!=STORAGE) fprintf(outFile, "adhoc_referenceData(%s)", n->name);
-			else fprintf(outFile, "%s", n->name);
+			if(isComplex && n->childType!=STORAGE && n->childType!=ARGUMENT)
+				fprintf(outFile, "adhoc_referenceData(%s)", n->name);
+			else
+				fprintf(outFile, "%s", n->name);
 		}
 		if(n->childType != PARAMETER || !defin){
 			for(i=0; i<n->countChildren; ++i){

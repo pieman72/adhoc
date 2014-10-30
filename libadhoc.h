@@ -21,6 +21,7 @@ typedef struct adhoc_data {
 	adhoc_dataType dataType;
 	int countData;
 	int sizeData;
+	char* mappedData;
 } adhoc_data;
 
 // Create a referenced data struct
@@ -33,13 +34,13 @@ adhoc_data* adhoc_referenceData(adhoc_data* d);
 void adhoc_assignArrayData(adhoc_data* d, int i, void* item, float primVal);
 
 // Remove a reference to a referenced data struct and delete it if last
-void adhoc_unreferenceData(adhoc_data* d);
+adhoc_data* adhoc_unreferenceData(adhoc_data* d);
 
 // Get the data from a referenced data struct
 void* adhoc_getData(adhoc_data* d);
 
 // Get the simple data at a particular index of an array
-float adhoc_getSArrayData(adhoc_data* d, int i);
+void* adhoc_getSArrayData(adhoc_data* d, int i);
 
 // Get the complex data at a particular index of an array
 adhoc_data* adhoc_getCArrayData(adhoc_data* d, int i);
