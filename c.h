@@ -64,7 +64,7 @@ void lang_c_generate_null(bool isInit, ASTnode* n, short indent, FILE* outFile, 
 
 // Generating actions differs most between init and gen, and decl and call
 void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
-	int i,j;
+	int i,j,k;
 	bool isComplex;
 	if(!isInit){
 		if(defin) n->which = ACTION_DEFIN;
@@ -154,6 +154,28 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 
 			// Open the body block
 			fprintf(outFile, "{\n");
+
+			// Increment references on complex parameters
+			for(k=0; k<n->countChildren; ++k){
+				if(n->children[k]->childType != PARAMETER) break;
+
+				// Check if a complex type
+				isComplex = false;
+				switch(n->children[k]->dataType){
+				case TYPE_STRNG:
+				case TYPE_ARRAY:
+				case TYPE_HASH:
+				case TYPE_STRCT:
+					isComplex = true;
+				}
+				if(!isComplex) continue;
+
+				// Add reference incrementer
+				lang_c_indent(indent+1, outFile);
+				fprintf(outFile, "adhoc_referenceData(%s);\n"
+					,n->children[k]->name
+				);
+			}
 
 			// Print declarations for any scope vars
 			char* dt;
@@ -284,7 +306,7 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 		}
 
 		// Indent this function call, and call it
-		lang_c_indent(indent, outFile);
+		if(n->childType == STATEMENT) lang_c_indent(indent, outFile);
 		fprintf(outFile, "%s(", n->name);
 
 		// Special handling for library functions
@@ -610,7 +632,7 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		break;
 
 	case CONTROL_RETRN:;
-		bool retVar = (
+		bool retVar = n->countChildren && (
 			n->children[0]->nodeType == ACTION
 			|| n->children[0]->nodeType == OPERATOR
 			|| n->children[0]->nodeType == ASSIGNMENT
@@ -664,7 +686,10 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		for(i=0; i<n->scope->countScopeVars; ++i){
 			// Skip the return node itself and any unnamed ones
 			if(retVar && n->scope->scopeVars[i]==n) continue;
-			if(!retVar && n->scope->scopeVars[i]==n->children[0]) continue;
+			if(!retVar
+					&& n->countChildren
+					&& n->scope->scopeVars[i]==n->children[0]
+				) continue;
 			if(!strlen(n->scope->scopeVars[i]->name)) continue;
 
 			// Check if a complex type
@@ -700,7 +725,7 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		lang_c_indent(indent, outFile);
 		fprintf(outFile, "return ");
 		if(retVar) fprintf(outFile, "%s", n->name);
-		else{
+		else if(n->countChildren){
 			isComplex = false;
 			switch(n->children[0]->dataType){
 			case TYPE_STRNG:
@@ -749,23 +774,67 @@ void lang_c_generate_operator(bool isInit, ASTnode* n, short indent, FILE* outFi
 					isComplex = true;
 				}
 				if(n->childType==STORAGE && n->parent->which==ASSIGNMENT_EQUAL){
-					fprintf(outFile, "adhoc_assignArrayData(%s, ", n->children[0]->name);
-					lang_c_generate(false, n->children[1], 0, outFile, nodes, errBuf);
+					fprintf(outFile, "adhoc_assignArrayData(%s, "
+						,n->children[0]->name
+					);
+					lang_c_generate(
+						false
+						,n->children[1]
+						,0
+						,outFile
+						,nodes
+						,errBuf
+					);
 					fprintf(outFile, ", ");
 					if(isComplex){
-						lang_c_generate(false, n->parent->children[1], 0, outFile, nodes, errBuf);
+						lang_c_generate(
+							false
+							,n->parent->children[1]
+							,0
+							,outFile
+							,nodes
+							,errBuf
+						);
 						fprintf(outFile, ", 0");
 					}else{
 						fprintf(outFile, "NULL, ");
-						lang_c_generate(false, n->parent->children[1], 0, outFile, nodes, errBuf);
+						lang_c_generate(
+							false
+							,n->parent->children[1]
+							,0
+							,outFile
+							,nodes
+							,errBuf
+						);
 					}
 					fprintf(outFile, ")");
 				}else{
-					fprintf(outFile, "adhoc_get%sArrayData(%s, %s)"
+					if(!isComplex){
+						fprintf(outFile, "*(");
+						lang_c_printTypeName(n, outFile);
+						fprintf(outFile, "*)");
+					}
+					fprintf(outFile, "adhoc_get%sArrayData("
 						,(isComplex ? "C" : "S")
-						,n->children[0]->name
-						,n->children[1]->value
 					);
+					lang_c_generate(
+						false
+						,n->children[0]
+						,0
+						,outFile
+						,nodes
+						,errBuf
+					);
+					fprintf(outFile, ", ");
+					lang_c_generate(
+						false
+						,n->children[1]
+						,0
+						,outFile
+						,nodes
+						,errBuf
+					);
+					fprintf(outFile, ")");
 				}
 				break;
 			case OPERATOR_PLUS:
@@ -860,7 +929,6 @@ void lang_c_generate_assignment(bool isInit, ASTnode* n, short indent, FILE* out
 // Generation rules for variables
 void lang_c_generate_variable(bool isInit, bool defin, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i;
-	bool isComplex;
 	if(isInit){
 		if(defin){
 			lang_c_indent(indent, outFile);
@@ -868,12 +936,25 @@ void lang_c_generate_variable(bool isInit, bool defin, ASTnode* n, short indent,
 			fprintf(outFile, " %s", n->name);
 			if(n->countChildren){
 				fprintf(outFile, " = ");
-				lang_c_generate(false, n->children[0], indent+1, outFile, nodes, errBuf);
+				lang_c_generate(
+					false
+					,n->children[0]
+					,indent+1
+					,outFile
+					,nodes
+					,errBuf
+				);
 			}
 			fprintf(outFile, ";\n");
 		}else{
 			for(i=0; i<n->countChildren; ++i){
-				lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
+				lang_c_initialize(
+					n->children[i]
+					,indent
+					,outFile
+					,nodes
+					,errBuf
+				);
 			}
 			if(n->childType == PARAMETER){
 				lang_c_printTypeName(n, outFile);
@@ -890,20 +971,13 @@ void lang_c_generate_variable(bool isInit, bool defin, ASTnode* n, short indent,
 		}else{
 			if(n->dataType == TYPE_VOID){
 				adhoc_errorNode = n;
-				sprintf(errBuf, "%s", "Variable used before being assigned a value");
+				sprintf(
+					errBuf
+					,"%s"
+					,"Variable used before being assigned a value"
+				);
 			}
-			isComplex = false;
-			switch(n->dataType){
-			case TYPE_STRNG:
-			case TYPE_ARRAY:
-			case TYPE_HASH:
-			case TYPE_STRCT:
-				isComplex = true;
-			}
-			if(isComplex && n->childType!=STORAGE && n->childType!=ARGUMENT)
-				fprintf(outFile, "adhoc_referenceData(%s)", n->name);
-			else
-				fprintf(outFile, "%s", n->name);
+			fprintf(outFile, "%s", n->name);
 		}
 		if(n->childType != PARAMETER || !defin){
 			for(i=0; i<n->countChildren; ++i){
@@ -1023,7 +1097,7 @@ void lang_c_init(ASTnode* n, FILE* outFile, hashMap* nodes, bool exec, char* err
 	sizeFuncs = 2;
 	functions = realloc(functions, sizeFuncs * sizeof(ASTnode*));
 	if(exec){
-		fprintf(outFile, "#include <stdlib.h>\n#include <string.h>\n#include <libadhoc.h>\n");
+		fprintf(outFile, "#include <stdlib.h>\n#include <stdbool.h>\n#include <string.h>\n#include <libadhoc.h>\n");
 	}
 	lang_c_initialize(n, 0, outFile, nodes, errBuf);
 }
