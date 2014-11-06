@@ -35,7 +35,7 @@ char *s, buf[1024];
 						}
 
 (?s:[^"]..)				{ /* This regex is jank, and will break eventually */
-						yylval.intVal = ((yytext[0]*256)+yytext[1])*256+yytext[2];
+						yylval.intVal = (((yytext[0]<<8) + yytext[1])<<8) + yytext[2];
 						return T_3BYTE;
 						}
 

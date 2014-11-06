@@ -66,9 +66,12 @@ hashMap* hashMap_create(hash_func f, hashMap_uint n){
 }
 
 // Change the capacity of a hashMap
-void hashMap_resize(hashMap** h){
+void hashMap_resize(hashMap** hp){
+	// Return if already good size
+	hashMap* oldMap = *hp;
+	if(oldMap->size == hashMap_chooseSize(oldMap->count)) return;
+
 	// Create a new hashMap
-	hashMap* oldMap = *h;
 	hashMap* newMap = hashMap_create(oldMap->hash, oldMap->count);
 
 	// Copy the items from h to the new hashMap
@@ -83,6 +86,7 @@ void hashMap_resize(hashMap** h){
 					if(newMap->items[j]) continue;
 					newMap->items[j] = oldMap->items[k];
 					++newMap->count;
+					break;
 				}
 			}
 		}
@@ -91,7 +95,7 @@ void hashMap_resize(hashMap** h){
 	// Free the old hashMap and have the pointer point to the new one
 	free(oldMap->items);
 	free(oldMap);
-	*h = newMap;
+	*hp = newMap;
 }
 
 // Frees a map struct with a generic destructor function pointer
@@ -120,10 +124,11 @@ void hashMap_destroy(hashMap* h, destruct_func f){
 }
 
 // Adds an item to a hashMap. Returns its key on successs else 0
-hashMap_uint hashMap_add(hashMap* h, void* v){
-	if(h->count*2 > h->size){
-		hashMap_resize(&h);
+hashMap_uint hashMap_add(hashMap** hp, void* v){
+	if((*hp)->count*2 > (*hp)->size){
+		hashMap_resize(hp);
 	}
+	hashMap* h = *hp;
 
 	// Create a new hashMap item to be inserted into the map
 	hashMapItem* item = malloc(sizeof(hashMapItem));

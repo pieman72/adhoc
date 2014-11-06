@@ -391,7 +391,7 @@ void adhoc_setModuleLocation(char* lang, char* loc, char* errBuf){
 	i->location = malloc(strlen(loc)+1);
 	strcpy(i->item, lang);
 	strcpy(i->location, loc);
-	hashMap_add(moduleMap, (void*) i);
+	hashMap_add(&moduleMap, (void*) i);
 }
 
 // Initialize ADHOC. Read configuration files / arguments
@@ -508,7 +508,7 @@ void adhoc_init(int argc, char** argv, char* errBuf){
 // Insert a node into the abstract syntax tree
 void adhoc_insertNode(ASTnode* n){
 	// Add the new node to the node map
-	hashMap_add(nodeMap, (void*)n);
+	hashMap_add(&nodeMap, (void*)n);
 
 	// Capture the root node
 	if(!n->parentId){
