@@ -214,7 +214,10 @@ void adhoc_determineType(ASTnode* n, int d, char* errBuf){
 		break;
 
 	case VARIABLE_ASIGN:
-		if(n->childType==PARAMETER || n->childType==INITIALIZATION){
+		if(n->countChildren && (
+				n->childType==PARAMETER
+				|| n->childType==INITIALIZATION
+			)){
 			n->dataType = n->children[0]->dataType;
 			n->childDataType = n->children[0]->childDataType;
 		}else if(n->childType==STORAGE && (
