@@ -193,35 +193,47 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 				}
 
 				// Handle different datatypes differently
-				switch(n->scopeVars[j]->which){
-				case LITERAL_STRNG:
+				switch(n->scopeVars[j]->dataType){
+				case TYPE_STRNG:
 					lang_c_indent(indent+1, outFile);
 					lang_c_printTypeName(n->scopeVars[j], outFile);
-					fprintf(outFile, " %s = adhoc_createString(\"%s\");\n"
-						,n->scopeVars[j]->name
-						,n->scopeVars[j]->value
-					);
+					if(n->scopeVars[j]->nodeType == LITERAL){
+						fprintf(outFile, " %s = adhoc_createString(\"%s\");\n"
+							,n->scopeVars[j]->name
+							,n->scopeVars[j]->value
+						);
+					}else{
+						fprintf(outFile, " %s = NULL;\n"
+							,n->scopeVars[j]->name
+						);
+					}
 					break;
 
-				case LITERAL_ARRAY:
+				case TYPE_ARRAY:
 					// Handle declaration of temporaries for array literals
-					switch(n->scopeVars[j]->childDataType){
-					case TYPE_BOOL: dt = "DATA_BOOL"; break;
-					case TYPE_INT: dt = "DATA_INT"; break;
-					case TYPE_FLOAT: dt = "DATA_FLOAT"; break;
-					case TYPE_STRNG: dt = "DATA_STRING"; break;
-					case TYPE_ARRAY: dt = "DATA_ARRAY"; break;
-					case TYPE_HASH: dt = "DATA_HASH"; break;
-					case TYPE_STRCT: dt = "DATA_STRUCT"; break;
-					default: dt = "DATA_VOID"; break;
-					}
 					lang_c_indent(indent+1, outFile);
 					lang_c_printTypeName(n->scopeVars[j], outFile);
-					fprintf(outFile, " %s = adhoc_referenceData(adhoc_createArray(%s, %d));\n"
-						,n->scopeVars[j]->name
-						,dt
-						,n->scopeVars[j]->countChildren
-					);
+					if(n->scopeVars[j]->nodeType == LITERAL){
+						switch(n->scopeVars[j]->childDataType){
+						case TYPE_BOOL: dt = "DATA_BOOL"; break;
+						case TYPE_INT: dt = "DATA_INT"; break;
+						case TYPE_FLOAT: dt = "DATA_FLOAT"; break;
+						case TYPE_STRNG: dt = "DATA_STRING"; break;
+						case TYPE_ARRAY: dt = "DATA_ARRAY"; break;
+						case TYPE_HASH: dt = "DATA_HASH"; break;
+						case TYPE_STRCT: dt = "DATA_STRUCT"; break;
+						default: dt = "DATA_VOID"; break;
+						}
+						fprintf(outFile, " %s = adhoc_referenceData(adhoc_createArray(%s, %d));\n"
+							,n->scopeVars[j]->name
+							,dt
+							,n->scopeVars[j]->countChildren
+						);
+					}else{
+						fprintf(outFile, " %s = NULL;\n"
+							,n->scopeVars[j]->name
+						);
+					}
 					break;
 
 				default:
@@ -305,37 +317,93 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 			break;
 		}
 
-		// Indent this function call, and call it
+		// Indent this function call
 		if(n->childType == STATEMENT) lang_c_indent(indent, outFile);
-		fprintf(outFile, "%s(", n->name);
 
 		// Special handling for library functions
 		if(!strcmp(n->package, "System")){
-			// ADHOC print function
-			if(!strcmp(n->name, "adhoc_print")){
-				fprintf(outFile, "\"");
+			// TODO: There's probably a better way than enumerating by name. Hash the names?
+			// type - Returns the type (as an integer 0-9) of one complex argument
+			if(!strcmp(n->name, "adhoc_type")){
+				bool isComplex = false;
+				switch(n->children[0]->dataType){
+				case TYPE_STRNG:
+				case TYPE_ARRAY:
+				case TYPE_HASH:
+				case TYPE_STRCT:
+					isComplex = true;
+				}
+				if(isComplex) fprintf(outFile, "adhoc_type(");
+				else{
+					adhoc_errorNode = n->children[0];
+					sprintf(
+						errBuf
+						,"Node %d: Only complex dataTypes can be passed to type()"
+						,n->children[0]->id
+					);
+				}
+
+			// size - Returns the size (in bytes) of one argument
+			}else if(!strcmp(n->name, "adhoc_size")){
+				bool isComplex = false;
+				switch(n->children[0]->dataType){
+				case TYPE_STRNG:
+				case TYPE_ARRAY:
+				case TYPE_HASH:
+				case TYPE_STRCT:
+					isComplex = true;
+				}
+				if(isComplex) fprintf(outFile, "adhoc_sizeC(");
+				else fprintf(outFile, "adhoc_sizeS(");
+
+			// count - Returns the count of items in one argument
+			}else if(!strcmp(n->name, "adhoc_count")){
+				bool isComplex = false;
+				switch(n->children[0]->dataType){
+				case TYPE_STRNG:
+				case TYPE_ARRAY:
+				case TYPE_HASH:
+				case TYPE_STRCT:
+					isComplex = true;
+				}
+				if(isComplex) fprintf(outFile, "adhoc_countC(");
+				else fprintf(outFile, "adhoc_countS(");
+
+			// print - Prints arbitrarily many arguments
+			}else if(!strcmp(n->name, "adhoc_print")){
+				fprintf(outFile, "adhoc_print(\"");
 				for(i=0; i<n->countChildren; ++i){
 					switch(n->children[i]->dataType){
-						case TYPE_BOOL: fprintf(outFile, "%%d"); break;
-						case TYPE_INT: fprintf(outFile, "%%d"); break;
-						case TYPE_FLOAT: fprintf(outFile, "%%f"); break;
-						case TYPE_STRNG: fprintf(outFile, "%%s"); break;
-						case TYPE_ARRAY:
-						case TYPE_HASH:
-						case TYPE_STRCT:
-							fprintf(outFile, "%%_"); break;
-						default:
-							adhoc_errorNode = n->children[i];
-							sprintf(
-								errBuf
-								,"Node %d: Datatype not printable: %s"
-								,n->children[i]->id
-								,adhoc_dataType_names[n->children[i]->dataType]
-							);
+					case TYPE_BOOL: fprintf(outFile, "%%d"); break;
+					case TYPE_INT: fprintf(outFile, "%%d"); break;
+					case TYPE_FLOAT: fprintf(outFile, "%%f"); break;
+					case TYPE_STRNG: fprintf(outFile, "%%s"); break;
+					case TYPE_ARRAY:
+					case TYPE_HASH:
+					case TYPE_STRCT:
+						fprintf(outFile, "%%_"); break;
+					default:
+						adhoc_errorNode = n->children[i];
+						sprintf(
+							errBuf
+							,"Node %d: Datatype not printable: %s"
+							,n->children[i]->id
+							,adhoc_dataType_names[n->children[i]->dataType]
+						);
 					}
 				}
 				fprintf(outFile, "\", ");
+
+/*
+			//
+			}else if(){
+
+*/
 			}
+
+		// If not a library function, then make a regular call
+		}else{
+			fprintf(outFile, "%s(", n->name);
 		}
 
 		// Print the action's arguments
@@ -842,7 +910,18 @@ void lang_c_generate_operator(bool isInit, ASTnode* n, short indent, FILE* outFi
 			case OPERATOR_TIMES:
 			case OPERATOR_DIVBY:
 			case OPERATOR_MOD:
-			case OPERATOR_EXP:
+				lang_c_generate(false, n->children[0], indent+1, outFile, nodes, errBuf);
+				fprintf(outFile, " %s ", adhoc_nodeWhich_names[n->which]);
+				lang_c_generate(false, n->children[1], indent+1, outFile, nodes, errBuf);
+				break;
+			case OPERATOR_EXP: // TODO
+				adhoc_errorNode = n;
+				sprintf(
+					errBuf
+					,"%s"
+					,"Exponentiation is not currently implemented for C"
+				);
+				break;
 			case OPERATOR_OR:
 			case OPERATOR_AND:
 			case OPERATOR_EQUIV:

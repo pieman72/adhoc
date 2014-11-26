@@ -296,10 +296,21 @@ const char* adhoc_getNodeLabel(ASTnode* n){
 
 // Determines the sub-label to use for rendering a node
 const char* adhoc_getNodeSubLabel(ASTnode* n){
-	if(!n->parentId) return n->package;
-	if(n->value && strlen(n->value)) return n->value;
-	if(n->package && strlen(n->package)) return n->package;
-	return adhoc_nodeWhich_names[n->which];
+	switch(n->nodeType){
+	case VARIABLE:
+		return adhoc_dataType_names[n->dataType];
+	case LITERAL:
+		return adhoc_dataType_names[n->dataType];
+	case TYPE_NULL:
+	case ACTION:
+	case GROUP:
+	case CONTROL:
+		if(n->package && strlen(n->package)) return n->package;
+	case OPERATOR:
+	case ASSIGNMENT:
+	default:
+		return adhoc_nodeWhich_names[n->which];
+	}
 }
 
 // Generic function pointer type for walks of the abstract syntax tree

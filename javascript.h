@@ -154,7 +154,19 @@ void lang_javascript_generate_action(bool isInit, ASTnode* n, short indent, FILE
 
 			// Close the function body
 			lang_javascript_indent(indent, outFile);
-			fprintf(outFile, "}\n");
+			fprintf(outFile, "}");
+			if(n->countChildren
+					&& n->children[0]->childType==PARAMETER
+					&& n->children[0]->countChildren
+				){
+				fprintf(outFile, "(");
+				for(i=0; i<n->countChildren; ++i){
+					if(n->children[i]->childType!=PARAMETER) break;
+					if(i) fprintf(outFile, ", ");
+					lang_javascript_generate(false, n->children[i]->children[0], 0, outFile, nodes, errBuf);
+				}
+			}
+			fprintf(outFile, ");\n");
 			if(!n->parent) break;
 		}
 

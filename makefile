@@ -124,7 +124,7 @@ commit: clean
 	@echo "$(LC1)-- Showing Modified Local Files --$(NORMAL)"
 	@git status
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
-	@echo "$(LC2)-- Select Files To Commit --$(NORMAL)"
+	@echo "$(LC2)-- Select Files To Commit (-A for all) --$(NORMAL)"
 	@read -p "Files: " ADHOC_COMMIT_LIST; git add $$ADHOC_COMMIT_LIST
 	@echo "[ $(LC3)OK$(NORMAL) ]\n"
 	@echo "$(LC3)-- Files Chosen, Add Message --$(NORMAL)"

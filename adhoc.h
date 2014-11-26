@@ -55,16 +55,24 @@ bool fileAcc(char* path, char* mode){
 	return (f=fopen(path, mode)) && !fclose(f);
 }
 
+// Get a node's index in its parent
+int adhoc_getNodeIndexOfChild(ASTnode* p, ASTnode* c){
+	int i = -1;
+	while(++i < p->countChildren) if(p->children[i] == c) return i;
+	return -1;
+}
+
 // A walkable simple print function
 void adhoc_printNode(ASTnode* n, int d, char* errBuf){
-	char* buf = calloc(20, sizeof(char));
-	sprintf(buf, "%%-%ds%%2d %%s%%s (%%s)\n", d*3);
+	int index = n->parent ? adhoc_getNodeIndexOfChild(n->parent, n) : -1;
+	char* buf = calloc(37, sizeof(char));
+	sprintf(buf, "%%-%ds%%s [38;5;241m%%2d[39m %%s (%%s)\n", d*3);
 	fprintf(
 		stderr
 		,buf
 		,""
+		,(n->parent ? (index<n->parent->countChildren-1 ? "├" : "└") : "##")
 		,n->id
-		,(n->parentId ? (n->countChildren ? "+-" : "--") : "##")
 		,adhoc_getNodeLabel(n)
 		,adhoc_getNodeSubLabel(n)
 	);
@@ -109,6 +117,7 @@ void adhoc_determineType(ASTnode* n, int d, char* errBuf){
 	case CONTROL_CNTNU:
 	case CONTROL_BREAK:
 		n->dataType = TYPE_VOID;
+		n->childDataType = TYPE_VOID;
 		break;
 
 	case ACTION_DEFIN:
@@ -128,7 +137,23 @@ void adhoc_determineType(ASTnode* n, int d, char* errBuf){
 
 	case ACTION_CALL:
 		n->dataType = TYPE_VOID;
-// TODO
+		n->childDataType = TYPE_VOID;
+		if(n->reference){
+			n->dataType = n->reference->dataType;
+			n->childDataType = n->reference->childDataType;
+		}else if(!strcmp(n->package, "System")){
+			if(!strcmp(n->name, "adhoc_type")){
+				n->dataType = TYPE_INT;
+			}else if(!strcmp(n->name, "adhoc_size")){
+				n->dataType = TYPE_INT;
+			}else if(!strcmp(n->name, "adhoc_count")){
+				n->dataType = TYPE_INT;
+			}else if(!strcmp(n->name, "adhoc_toString")){
+				n->dataType = TYPE_STRNG;
+			}else if(!strcmp(n->name, "adhoc_print")){
+				n->dataType = TYPE_VOID;
+			}
+		}
 		break;
 
 	case CONTROL_RETRN:

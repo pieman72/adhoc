@@ -6,6 +6,13 @@
 #include "hashmap.h"
 #include "libadhoc.h"
 
+const ushort DATA_MAP_BIT_FIELD_SIZE = 8;
+
+
+//-----------------------//
+//    Data Allocation    //
+//-----------------------//
+
 // Create a referenced data struct
 adhoc_data* adhoc_createData(adhoc_dataType t, void* d, adhoc_dataType c, int n){
 	adhoc_data* ret = malloc(sizeof(adhoc_data));
@@ -16,13 +23,46 @@ adhoc_data* adhoc_createData(adhoc_dataType t, void* d, adhoc_dataType c, int n)
 	ret->countData = 0;
 	ret->sizeData = n;
 	if(t == DATA_ARRAY){
-		int size = (n-1)/8+1;
-		ret->mappedData = calloc(size, 1);
+		int size = (n-1)/DATA_MAP_BIT_FIELD_SIZE+1;
+		ret->mappedData = calloc(size, sizeof(void*));
 	}else{
 		ret->mappedData = NULL;
 	}
 	return ret;
 }
+
+// Create a new string and return its reference
+adhoc_data* adhoc_createString(char* s){
+	return adhoc_createData(
+		DATA_STRING
+		,strcpy(malloc(strlen(s)+1), s)
+		,DATA_VOID
+		,strlen(s)+1
+	);
+}
+
+// Create a new array and return its reference
+adhoc_data* adhoc_createArray(adhoc_dataType t, int n){
+	short s;
+	switch(t){
+	case DATA_BOOL: s = sizeof(bool); break;
+	case DATA_INT: s = sizeof(int); break;
+	case DATA_FLOAT: s = sizeof(float); break;
+	default:
+		s = sizeof(adhoc_data*);
+	}
+	return adhoc_createData(
+		DATA_ARRAY
+		,calloc(n, s)
+		,t
+		,n
+	);
+}
+
+
+//--------------------------//
+//    Reference Counting    //
+//--------------------------//
 
 // Add a reference to a referenced data struct
 adhoc_data* adhoc_referenceData(adhoc_data* d){
@@ -48,8 +88,8 @@ void adhoc_assignArrayData(adhoc_data* arr, int i, void* item, float primVal){
 		}
 		arr->data = realloc(arr->data, s*newSize);
 		memset(arr->data+arr->sizeData, 0, (newSize - arr->sizeData)*s);
-		int oldMapSize = (arr->sizeData-1)/8+1;
-		int newMapSize = (newSize-1)/8+1;
+		int oldMapSize = (arr->sizeData-1)/DATA_MAP_BIT_FIELD_SIZE+1;
+		int newMapSize = (newSize-1)/DATA_MAP_BIT_FIELD_SIZE+1;
 		arr->mappedData = realloc(arr->mappedData, newMapSize);
 		memset(arr->mappedData+oldMapSize, 0, newMapSize-oldMapSize);
 		arr->sizeData = newSize;
@@ -61,15 +101,12 @@ void adhoc_assignArrayData(adhoc_data* arr, int i, void* item, float primVal){
 		break;
 	case DATA_BOOL:
 		((bool*)arr->data)[i] = (bool)primVal;
-		++arr->countData;
 		break;
 	case DATA_INT:
 		((int*)arr->data)[i] = (int)primVal;
-		++arr->countData;
 		break;
 	case DATA_FLOAT:
 		((float*)arr->data)[i] = (float)primVal;
-		++arr->countData;
 		break;
 	case DATA_STRING:
 	case DATA_ARRAY:
@@ -78,14 +115,20 @@ void adhoc_assignArrayData(adhoc_data* arr, int i, void* item, float primVal){
 		// If complex, remove a reference to the old item
 		;adhoc_data** ptr = ((adhoc_data**)arr->data) + i;
 		if(*ptr) adhoc_unreferenceData(*ptr);
-		else ++arr->countData;
-		*ptr = (adhoc_data*)item;
 
 		// Add a reference to the new item
-		adhoc_referenceData((adhoc_data*)item);
+		*ptr = (adhoc_data*)item;
+		adhoc_referenceData(*ptr);
 		break;
 	}
-	*(arr->mappedData+i/8) |= (1<<(i%8));
+	// If the new index was not previously mapped, increment the count and map
+	if(!(arr->mappedData[i/DATA_MAP_BIT_FIELD_SIZE]
+			& (1<<(i%DATA_MAP_BIT_FIELD_SIZE))
+		)){
+		++arr->countData;
+		*(arr->mappedData+i/DATA_MAP_BIT_FIELD_SIZE)
+			|= (1<<(i%DATA_MAP_BIT_FIELD_SIZE));
+	}
 
 	adhoc_unreferenceData(arr);
 }
@@ -132,6 +175,11 @@ adhoc_data* adhoc_unreferenceData(adhoc_data* d){
 	return NULL;
 }
 
+
+//------------------------------//
+//    Accessing Complex Data    //
+//------------------------------//
+
 // Get the data from a referenced data struct
 void* adhoc_getData(adhoc_data* d){
 	return d->data;
@@ -143,7 +191,9 @@ void* adhoc_getSArrayData(adhoc_data* arr, int i){
 	// If the index is beyond the bounds of the array, return 0
 	if(i >= arr->sizeData) return NULL;
 	// If the field is unset, return 0
-	if(!(arr->mappedData[i/8] & (1<<(i%8)))) return NULL;
+	if(!(arr->mappedData[i/DATA_MAP_BIT_FIELD_SIZE]
+			& (1<<(i%DATA_MAP_BIT_FIELD_SIZE)))
+		) return NULL;
 	switch(arr->dataType){
 	case DATA_VOID:
 		return arr->data+i;
@@ -164,36 +214,40 @@ adhoc_data* adhoc_getCArrayData(adhoc_data* arr, int i){
 	// If the index is beyond the bounds of the array, return NULL
 	if(i >= arr->sizeData) return NULL;
 	// If the field is unset, return NULL
-	if(!(arr->mappedData[i/8] & (1<<(i%8)))) return NULL;
+	if(!(arr->mappedData[i/DATA_MAP_BIT_FIELD_SIZE]
+			& (1<<(i%DATA_MAP_BIT_FIELD_SIZE))))
+		return NULL;
 	return ((adhoc_data**)arr->data)[i];
 }
 
-// Create a new string and return its reference
-adhoc_data* adhoc_createString(char* s){
-	return adhoc_createData(
-		DATA_STRING
-		,strcpy(malloc(strlen(s)+1), s)
-		,DATA_VOID
-		,strlen(s)+1
-	);
+
+//------------------------------//
+//    Library API Functionss    //
+//------------------------------//
+
+// Returns the type (as an integer 0-9) of one complex argument
+adhoc_dataType adhoc_type(adhoc_data* d){
+	return d->dataType;
 }
 
-// Create a new array and return its reference
-adhoc_data* adhoc_createArray(adhoc_dataType t, int n){
-	short s;
-	switch(t){
-	case DATA_BOOL: s = sizeof(bool); break;
-	case DATA_INT: s = sizeof(int); break;
-	case DATA_FLOAT: s = sizeof(float); break;
-	default:
-		s = sizeof(adhoc_data*);
-	}
-	return adhoc_createData(
-		DATA_ARRAY
-		,calloc(n, s)
-		,t
-		,n
-	);
+// Returns the size (in bytes) of one simple argument (sizeofFloat)
+int adhoc_sizeS(float d){
+	return sizeof(d);
+}
+
+// Returns the size (in bytes) of one complex argument's data array
+int adhoc_sizeC(adhoc_data* d){
+	return d->sizeData;
+}
+
+// Returns the count of items in one simple argument (always 1)
+int adhoc_countS(float d){
+	return sizeof(d)/sizeof(float);
+}
+
+// Returns the count of mapped items in one complex argument's data array
+int adhoc_countC(adhoc_data* d){
+	return (d->type==DATA_STRING) ? 1 : d->countData;
 }
 
 // Convert any wrapped datatype to a wrapped string
@@ -224,7 +278,6 @@ adhoc_data* adhoc_toString(adhoc_data* d){
 		break;
 	// Handle arrays
 	case DATA_ARRAY:;
-//-----------------------------------
 		int i=0
 			,checked=0
 			,total=1;
@@ -233,7 +286,9 @@ adhoc_data* adhoc_toString(adhoc_data* d){
 		buf[1] = '\0';
 		// Loop through array contents and print differently depending on types
 		for(i=0,checked=0; i<d->sizeData&&checked<d->countData; ++i){
-			if(!(d->mappedData[i/8] & (1<<(i%8)))) continue;
+			if(!(d->mappedData[i/DATA_MAP_BIT_FIELD_SIZE]
+					& (1<<(i%DATA_MAP_BIT_FIELD_SIZE))))
+				continue;
 			switch(d->dataType){
 			case DATA_VOID:
 				break;
@@ -279,7 +334,6 @@ adhoc_data* adhoc_toString(adhoc_data* d){
 		if(size<total+2) buf = realloc(buf,(size*=2));
 		buf[total++]=']';
 		buf[total]='\0';
-//-----------------------------------
 		break;
 	case DATA_HASH: snprintf(buf, size, "<<HASH>>"); break;
 	case DATA_STRUCT: snprintf(buf, size, "<<STRUCT>>"); break;
