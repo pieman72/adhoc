@@ -518,6 +518,15 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 			// find in string - gets first instance in string of substring
 			}else if(!strcmp(n->name, "adhoc_find_in_string")){
 
+			// Unrecognized library function!
+			}else{
+				adhoc_errorNode = n;
+				sprintf(
+					errBuf
+					,"Node %d: Datatype cannot be concatenated: %s"
+					,n->id
+					,adhoc_dataType_names[n->dataType]
+				);
 			}
 
 		// If not a library function, then make a regular call
@@ -530,7 +539,11 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 			if(n->children[i]->childType == ARGUMENT
 					|| n->children[i]->childType == PARAMETER
 				){
-				if(i>0) fprintf(outFile, ", ");
+				if(n->countChildren >= 4){
+					fprintf(outFile, "\n");
+					lang_c_indent(indent+1, outFile);
+					if(i) fprintf(outFile, ",");
+				}else if(i) fprintf(outFile, ", ");
 				lang_c_generate(
 					false
 					,n->children[i]
@@ -543,6 +556,10 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 		}
 
 		// Close the function call
+		if(n->countChildren >= 4){
+			fprintf(outFile, "\n");
+			lang_c_indent(indent, outFile);
+		}
 		fprintf(outFile, ")");
 
 		// If this is the end of a statement, add a semicolon
