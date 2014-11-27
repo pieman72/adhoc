@@ -1008,6 +1008,7 @@ void lang_c_generate_operator(bool isInit, ASTnode* n, short indent, FILE* outFi
 // Generation rules for assignments
 void lang_c_generate_assignment(bool isInit, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i;
+	bool isComplex;
 	if(isInit){
 		// Initialize the children and pass their types to the assignment and storage
 		for(i=0; i<n->countChildren; ++i){
@@ -1033,7 +1034,17 @@ void lang_c_generate_assignment(bool isInit, ASTnode* n, short indent, FILE* out
 				lang_c_generate(false, n->children[0], indent+1, outFile, nodes, errBuf);
 				if(n->children[0]->which == OPERATOR_ARIND) break;
 				fprintf(outFile, " %s ", adhoc_nodeWhich_names[n->which]);
+				isComplex = false;
+				switch(n->children[1]->dataType){
+				case TYPE_STRNG:
+				case TYPE_ARRAY:
+				case TYPE_HASH:
+				case TYPE_STRCT:
+					isComplex = true;
+				}
+				if(isComplex) fprintf(outFile, "adhoc_referenceData(");
 				lang_c_generate(false, n->children[1], indent+1, outFile, nodes, errBuf);
+				if(isComplex) fprintf(outFile, ")");
 				break;
 			case ASSIGNMENT_PLUS:
 			case ASSIGNMENT_MINUS:
