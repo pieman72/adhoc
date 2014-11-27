@@ -104,4 +104,13 @@ void adhoc_append_to_string(char* format, adhoc_data* s, ...);
 // Concatenate arbitrary arguments into one string
 adhoc_data* adhoc_concat(char* format, ...);
 
+// Copy from s starting at start and running for length
+adhoc_data* adhoc_substring(adhoc_data* baseString, int index, int length);
+
+// Patch the replacement over the base string at index return what is replaced
+adhoc_data* adhoc_splice_string(adhoc_data* baseString, adhoc_data* replacement, int index, int length);
+
+// Finds the first occurrence of targetsString in baseString
+int adhoc_find_in_string(adhoc_data* baseString, adhoc_data* targetsString);
+
 #endif

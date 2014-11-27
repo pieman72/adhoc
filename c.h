@@ -511,12 +511,87 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 
 			// substring - returns a copy from a string from an index of length
 			}else if(!strcmp(n->name, "adhoc_substring")){
+				if(n->children[0]->dataType != TYPE_STRNG){
+					adhoc_errorNode = n->children[0];
+					sprintf(
+						errBuf
+						,"Node %d: First parameter to 'substring' must be a string"
+						,n->children[1]->id
+					);
+				}
+				if(n->children[1]->dataType != TYPE_INT){
+					adhoc_errorNode = n->children[1];
+					sprintf(
+						errBuf
+						,"Node %d: Second parameter to 'substring' must be an integer"
+						,n->children[1]->id
+					);
+				}
+				if(n->children[2]->dataType != TYPE_INT){
+					adhoc_errorNode = n->children[2];
+					sprintf(
+						errBuf
+						,"Node %d: Third parameter to 'substring' must be an integer"
+						,n->children[2]->id
+					);
+				}
+				fprintf(outFile, "%s(", n->name);
 
 			// splice string - patches first with second from index of length
 			}else if(!strcmp(n->name, "adhoc_splice_string")){
+				if(n->children[0]->dataType != TYPE_STRNG){
+					adhoc_errorNode = n->children[0];
+					sprintf(
+						errBuf
+						,"Node %d: First parameter to 'splice string' must be a string"
+						,n->children[1]->id
+					);
+				}
+				if(n->children[1]->dataType != TYPE_STRNG){
+					adhoc_errorNode = n->children[1];
+					sprintf(
+						errBuf
+						,"Node %d: Second parameter to 'splice string' must be an string"
+						,n->children[1]->id
+					);
+				}
+				if(n->children[2]->dataType != TYPE_INT){
+					adhoc_errorNode = n->children[2];
+					sprintf(
+						errBuf
+						,"Node %d: Third parameter to 'splice string' must be an integer"
+						,n->children[2]->id
+					);
+				}
+				if(n->children[3]->dataType != TYPE_INT){
+					adhoc_errorNode = n->children[3];
+					sprintf(
+						errBuf
+						,"Node %d: Fourth parameter to 'splice string' must be an integer"
+						,n->children[3]->id
+					);
+				}
+				fprintf(outFile, "%s(", n->name);
 
 			// find in string - gets first instance in string of substring
 			}else if(!strcmp(n->name, "adhoc_find_in_string")){
+				if(n->children[0]->dataType != TYPE_STRNG){
+					adhoc_errorNode = n->children[0];
+					sprintf(
+						errBuf
+						,"Node %d: First parameter to 'find in string' must be a string"
+						,n->children[1]->id
+					);
+				}
+				if(n->children[1]->dataType != TYPE_STRNG){
+					adhoc_errorNode = n->children[1];
+					sprintf(
+						errBuf
+						,"Node %d: Second parameter to 'find in string' must be an string"
+						,n->children[1]->id
+					);
+				}
+				fprintf(outFile, "%s(", n->name);
 
 			// Unrecognized library function!
 			}else{
@@ -539,7 +614,7 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 			if(n->children[i]->childType == ARGUMENT
 					|| n->children[i]->childType == PARAMETER
 				){
-				if(n->countChildren >= 4){
+				if(n->countChildren>=4 && indent){
 					fprintf(outFile, "\n");
 					lang_c_indent(indent+1, outFile);
 					if(i) fprintf(outFile, ",");
@@ -556,7 +631,7 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 		}
 
 		// Close the function call
-		if(n->countChildren >= 4){
+		if(n->countChildren>=4 && indent){
 			fprintf(outFile, "\n");
 			lang_c_indent(indent, outFile);
 		}

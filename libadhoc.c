@@ -226,46 +226,46 @@ adhoc_data* adhoc_getCArrayData(adhoc_data* arr, int i){
 
 //-- GENERAL --//
 // Returns the type (as an integer 0-9) of one complex argument
-adhoc_dataType adhoc_type(adhoc_data* d){
-	return d->dataType;
+adhoc_dataType adhoc_type(adhoc_data* item){
+	return item->dataType;
 }
 
 // Returns the size (in bytes) of one simple argument (sizeofFloat)
-int adhoc_sizeS(float d){
-	return sizeof(d);
+int adhoc_sizeS(float item){
+	return sizeof(item);
 }
 
 // Returns the size (in bytes) of one complex argument's data array
-int adhoc_sizeC(adhoc_data* d){
-	return d->sizeData;
+int adhoc_sizeC(adhoc_data* item){
+	return item->sizeData - (item->type==DATA_STRING?1:0);
 }
 
 // Returns the count of items in one simple argument (always 1)
-int adhoc_countS(float d){
-	return sizeof(d)/sizeof(float);
+int adhoc_countS(float item){
+	return sizeof(item)/sizeof(float);
 }
 
 // Returns the count of mapped items in one complex argument's data array
-int adhoc_countC(adhoc_data* d){
-	return (d->type==DATA_STRING) ? 1 : d->countData;
+int adhoc_countC(adhoc_data* item){
+	return (item->type==DATA_STRING) ? 1 : item->countData;
 }
 
 // Convert any simple datatype to a wrapped string
-adhoc_data* adhoc_toStringS(adhoc_dataType t, float d){
+adhoc_data* adhoc_toStringS(adhoc_dataType t, float item){
 	// Wrap the simple data and pass it to adhoc_toStringC
-	void* dp;
+	void* itemp;
 	switch(t){
-	case DATA_BOOL: *((bool*)(dp = malloc(sizeof(bool)))) = (bool)d; break;
-	case DATA_INT: *((int*)(dp = malloc(sizeof(int)))) = (int)d; break;
-	case DATA_FLOAT: *((float*)(dp = malloc(sizeof(float)))) = d; break;
-	default: dp = NULL;
+	case DATA_BOOL: *((bool*)(itemp = malloc(sizeof(bool)))) = (bool)item; break;
+	case DATA_INT: *((int*)(itemp = malloc(sizeof(int)))) = (int)item; break;
+	case DATA_FLOAT: *((float*)(itemp = malloc(sizeof(float)))) = item; break;
+	default: itemp = NULL;
 	}
-	return adhoc_toStringC(adhoc_createData(t, dp, DATA_VOID, 1));
+	return adhoc_toStringC(adhoc_createData(t, itemp, DATA_VOID, 1));
 }
 
 // Convert any wrapped datatype to a wrapped string
-adhoc_data* adhoc_toStringC(adhoc_data* d){
-	adhoc_referenceData(d);
+adhoc_data* adhoc_toStringC(adhoc_data* item){
+	adhoc_referenceData(item);
 
 	// Create an output buffer
 	int size = 256,len;
@@ -273,20 +273,20 @@ adhoc_data* adhoc_toStringC(adhoc_data* d){
 	buf[0] = '\0';
 
 	// Depending on the datatype, we'll add different things to the buffer
-	switch(d->type){
+	switch(item->type){
 	case DATA_VOID:
 		snprintf(buf, size, "<<VOID>>"); break;
 	case DATA_BOOL:
-		snprintf(buf, size, "%s", *((bool*)d->data)?"true":"false"); break;
+		snprintf(buf, size, "%s", *((bool*)item->data)?"true":"false"); break;
 	case DATA_INT:
-		snprintf(buf, size, "%d", *((int*)d->data)); break;
+		snprintf(buf, size, "%d", *((int*)item->data)); break;
 	case DATA_FLOAT:
-		snprintf(buf, size, "%f", *((float*)d->data)); break;
+		snprintf(buf, size, "%f", *((float*)item->data)); break;
 	// Unwrap strings
 	case DATA_STRING:;
-		len = d->sizeData;
+		len = item->sizeData;
 		if(size<len) buf = realloc(buf, size=len);
-		memcpy(buf, d->data, len);
+		memcpy(buf, item->data, len);
 		break;
 	// Handle arrays
 	case DATA_ARRAY:
@@ -297,31 +297,31 @@ adhoc_data* adhoc_toStringC(adhoc_data* d){
 		buf[0] = '[';
 		buf[1] = '\0';
 		// Loop through array contents and print differently depending on types
-		for(i=0,checked=0; i<d->sizeData && checked<d->countData; ++i){
-			if(!(d->mappedData[i/DATA_MAP_BIT_FIELD_SIZE]
+		for(i=0,checked=0; i<item->sizeData && checked<item->countData; ++i){
+			if(!(item->mappedData[i/DATA_MAP_BIT_FIELD_SIZE]
 					& (1<<(i%DATA_MAP_BIT_FIELD_SIZE))))
 				continue;
 
-			switch(d->dataType){
+			switch(item->dataType){
 			case DATA_VOID:
 				str = adhoc_referenceData(adhoc_createString("<<VOID>>"));
 				break;
 			case DATA_BOOL:
 				str = adhoc_referenceData(adhoc_toStringS(
 					DATA_BOOL
-					,*((bool*)adhoc_getSArrayData(d, i))
+					,*((bool*)adhoc_getSArrayData(item, i))
 				));
 				break;
 			case DATA_INT:
 				str = adhoc_referenceData(adhoc_toStringS(
 					DATA_INT
-					,*((int*)adhoc_getSArrayData(d, i))
+					,*((int*)adhoc_getSArrayData(item, i))
 				));
 				break;
 			case DATA_FLOAT:
 				str = adhoc_referenceData(adhoc_toStringS(
 					DATA_FLOAT
-					,*((float*)adhoc_getSArrayData(d, i))
+					,*((float*)adhoc_getSArrayData(item, i))
 				));
 				break;
 			case DATA_STRING:
@@ -329,7 +329,7 @@ adhoc_data* adhoc_toStringC(adhoc_data* d){
 			case DATA_HASH:
 			case DATA_STRUCT:
 				// Get one item in the array
-				;adhoc_data* cItem = adhoc_getCArrayData(d, i);
+				;adhoc_data* cItem = adhoc_getCArrayData(item, i);
 				str = adhoc_referenceData(adhoc_toStringC(cItem));
 				break;
 			}
@@ -363,7 +363,7 @@ adhoc_data* adhoc_toStringC(adhoc_data* d){
 	case DATA_STRUCT: snprintf(buf, size, "<<STRUCT>>"); break;
 	}
 
-	adhoc_unreferenceData(d);
+	adhoc_unreferenceData(item);
 	adhoc_data* ret = adhoc_createString(buf);
 	free(buf);
 	return ret;
@@ -434,13 +434,13 @@ void adhoc_print(char* format, ...){
 
 //-- STRINGS --//
 // Append one argument to an existing string
-void adhoc_append_to_string(char* format, adhoc_data* s, ...){
+void adhoc_append_to_string(char* format, adhoc_data* baseString, ...){
 	// Initialize arguments
 	adhoc_data* str = NULL;
 	int len;
 	char buf[20];
 	va_list args;
-	va_start(args, s);
+	va_start(args, baseString);
 
 	// Switch based on the argument type
 	switch(format[1]){
@@ -476,11 +476,11 @@ void adhoc_append_to_string(char* format, adhoc_data* s, ...){
 		break;
 	}
 
-	// Append str to s
-	len = s->sizeData-1 + str->sizeData;
-	s->data = realloc(s->data, len);
-	memcpy(s->data+s->sizeData-1, str->data, str->sizeData);
-	s->sizeData = len;
+	// Append str to baseString
+	len = baseString->sizeData-1 + str->sizeData;
+	baseString->data = realloc(baseString->data, len);
+	memcpy(baseString->data+baseString->sizeData-1, str->data, str->sizeData);
+	baseString->sizeData = len;
 	adhoc_unreferenceData(str);
 
 	// End the argument lists
@@ -568,4 +568,57 @@ adhoc_data* adhoc_concat(char* format, ...){
 	// Return the string with all the concatenations
 	str->data = realloc(str->data, newLen);
 	return str;
+}
+
+// Copy from s starting at start and running for length
+adhoc_data* adhoc_substring(adhoc_data* baseString, int index, int length){
+	++length;
+	if(index>=baseString->sizeData || length<1) return adhoc_createString("");
+	if(index+length >= baseString->sizeData)
+		length = baseString->sizeData - index;
+	char* data = malloc(length);
+	memcpy(data, baseString->data+index, length);
+	data[length-1] = '\0';
+	return adhoc_createData(DATA_STRING, data, DATA_VOID, length);
+}
+
+// Patch the replacement over the base string at index return what is replaced
+adhoc_data* adhoc_splice_string(adhoc_data* baseString, adhoc_data* replacement, int index, int length){
+	adhoc_data* ret = adhoc_substring(baseString, index, length);
+	if(index >= baseString->sizeData) return ret;
+	int newLen = baseString->sizeData - ret->sizeData + replacement->sizeData;
+	int carryOverLen = (index+length < baseString->sizeData-1)
+		? baseString->sizeData-1 - (index+length)
+		: 0;
+	char* tempBuffer = NULL;
+	if(carryOverLen){
+		tempBuffer = memcpy(
+			malloc(carryOverLen)
+			,baseString->data+index+length
+			,carryOverLen
+		);
+	}
+	memcpy(
+		baseString->data+index
+		,replacement->data
+		,replacement->sizeData-1
+	);
+	if(carryOverLen){
+		memcpy(
+			baseString->data+index+replacement->sizeData-1
+			,tempBuffer
+			,carryOverLen
+		);
+		free(tempBuffer);
+	}
+	baseString->sizeData = newLen;
+	baseString->data = realloc(baseString->data, newLen);
+	((char*)(baseString->data))[newLen-1] = '\0';
+	return ret;
+}
+
+// Finds the first occurrence of targetsString in baseString
+int adhoc_find_in_string(adhoc_data* baseString, adhoc_data* targetsString){
+	return strstr((char*)baseString->data, (char*)targetsString->data)
+		- (char*)baseString->data;
 }
