@@ -142,7 +142,6 @@ adhoc_data* adhoc_unreferenceData(adhoc_data* d){
 	case DATA_BOOL:
 	case DATA_INT:
 	case DATA_FLOAT:
-		break;
 	case DATA_STRING:
 		free(d->data);
 		break;
@@ -250,8 +249,21 @@ int adhoc_countC(adhoc_data* d){
 	return (d->type==DATA_STRING) ? 1 : d->countData;
 }
 
+// Convert any simple datatype to a wrapped string
+adhoc_data* adhoc_toStringS(adhoc_dataType t, float d){
+	// Wrap the simple data and pass it to adhoc_toStringC
+	void* dp;
+	switch(t){
+	case DATA_BOOL: *((bool*)(dp = malloc(sizeof(bool)))) = (bool)d; break;
+	case DATA_INT: *((int*)(dp = malloc(sizeof(int)))) = (int)d; break;
+	case DATA_FLOAT: *((float*)(dp = malloc(sizeof(float)))) = d; break;
+	default: dp = NULL;
+	}
+	return adhoc_toStringC(adhoc_createData(t, dp, DATA_VOID, 1));
+}
+
 // Convert any wrapped datatype to a wrapped string
-adhoc_data* adhoc_toString(adhoc_data* d){
+adhoc_data* adhoc_toStringC(adhoc_data* d){
 	adhoc_referenceData(d);
 
 	// Create an output buffer
@@ -261,55 +273,67 @@ adhoc_data* adhoc_toString(adhoc_data* d){
 
 	// Depending on the datatype, we'll add different things to the buffer
 	switch(d->type){
-	case DATA_VOID: snprintf(buf, size, "<<VOID>>"); break;
-	case DATA_BOOL: snprintf(buf, size, "%s", *((bool*)d->data)?"true":"false"); break;
-	case DATA_INT: snprintf(buf, size, "%d", *((int*)d->data)); break;
-	case DATA_FLOAT: snprintf(buf, size, "%f", *((float*)d->data)); break;
+	case DATA_VOID:
+		snprintf(buf, size, "<<VOID>>"); break;
+	case DATA_BOOL:
+		snprintf(buf, size, "%s", *((bool*)d->data)?"true":"false"); break;
+	case DATA_INT:
+		snprintf(buf, size, "%d", *((int*)d->data)); break;
+	case DATA_FLOAT:
+		snprintf(buf, size, "%f", *((float*)d->data)); break;
 	// Unwrap strings
 	case DATA_STRING:;
 		len = 0;
 		buf[len++] = '"';
-		buf[len] = '\0';
-		len += strlen((char*)d->data);
-		while(size<len+2) buf = realloc(buf, (size*=2));
-		snprintf(buf+1, len-2, "%s", (char*)d->data);
+		len += d->sizeData-1;
+		if(size<len+2) buf = realloc(buf, size=len+2);
+		memcpy(buf+1, d->data, len-1);
 		buf[len++] = '"';
 		buf[len] = '\0';
 		break;
 	// Handle arrays
-	case DATA_ARRAY:;
-		int i=0
+	case DATA_ARRAY:
+		;int i=0
 			,checked=0
 			,total=1;
 		adhoc_data* str=NULL;
 		buf[0] = '[';
 		buf[1] = '\0';
 		// Loop through array contents and print differently depending on types
-		for(i=0,checked=0; i<d->sizeData&&checked<d->countData; ++i){
+		for(i=0,checked=0; i<d->sizeData && checked<d->countData; ++i){
 			if(!(d->mappedData[i/DATA_MAP_BIT_FIELD_SIZE]
 					& (1<<(i%DATA_MAP_BIT_FIELD_SIZE))))
 				continue;
+
 			switch(d->dataType){
 			case DATA_VOID:
+				str = adhoc_referenceData(adhoc_createString("<<VOID>>"));
 				break;
 			case DATA_BOOL:
+				str = adhoc_referenceData(adhoc_toStringS(
+					DATA_BOOL
+					,*((bool*)adhoc_getSArrayData(d, i))
+				));
+				break;
 			case DATA_INT:
-			case DATA_FLOAT:;
-				void* sItem = adhoc_getSArrayData(d, i);
-				str = adhoc_referenceData(adhoc_toString(adhoc_createData(
-					d->dataType
-					,sItem
-					,DATA_VOID
-					,0
-				)));
+				str = adhoc_referenceData(adhoc_toStringS(
+					DATA_INT
+					,*((int*)adhoc_getSArrayData(d, i))
+				));
+				break;
+			case DATA_FLOAT:
+				str = adhoc_referenceData(adhoc_toStringS(
+					DATA_FLOAT
+					,*((float*)adhoc_getSArrayData(d, i))
+				));
 				break;
 			case DATA_STRING:
 			case DATA_ARRAY:
 			case DATA_HASH:
-			case DATA_STRUCT:;
+			case DATA_STRUCT:
 				// Get one item in the array
-				adhoc_data* cItem = adhoc_getCArrayData(d, i);
-				str = adhoc_referenceData(adhoc_toString(cItem));
+				;adhoc_data* cItem = adhoc_getCArrayData(d, i);
+				str = adhoc_referenceData(adhoc_toStringC(cItem));
 				break;
 			}
 
@@ -322,10 +346,12 @@ adhoc_data* adhoc_toString(adhoc_data* d){
 			}
 
 			// Convert that item to a string object, and add it to the output
-			len = str->sizeData-1;
-			while(size<total+len+1) buf = realloc(buf,(size*=2));
-			strncpy(buf+total, (char*)str->data, size-total-1);
-			total += len;
+			if(str){
+				len = str->sizeData-1;
+				while(size<total+len+1) buf = realloc(buf,(size*=2));
+				strncpy(buf+total, (char*)str->data, size-total-1);
+				total += len;
+			}
 
 			// Drop references
 			adhoc_unreferenceData(str);
@@ -335,6 +361,7 @@ adhoc_data* adhoc_toString(adhoc_data* d){
 		buf[total++]=']';
 		buf[total]='\0';
 		break;
+
 	case DATA_HASH: snprintf(buf, size, "<<HASH>>"); break;
 	case DATA_STRUCT: snprintf(buf, size, "<<STRUCT>>"); break;
 	}
@@ -367,7 +394,7 @@ void adhoc_print(char* format, ...){
 		}
 
 		// Print the next argument
-		switch(buf[strlen(buf)-1]){
+		switch(buf[1]){
 		case 'd':
 			// Fetch an integer primative
 			printf("%d", va_arg(args, int));
@@ -376,25 +403,26 @@ void adhoc_print(char* format, ...){
 			// Fetch a float primative
 			printf("%f", va_arg(args, double));
 			break;
-		case 's':;
+		case 's':
 			// Fetch a string
-			adhoc_data* str = adhoc_referenceData(va_arg(args, adhoc_data*));
+			;adhoc_data* str = adhoc_referenceData(va_arg(args, adhoc_data*));
 			printf("%s", (char*)(str->data));
 			adhoc_unreferenceData(str);
 			break;
-		case '_':;
+		case '_':
 			// Fetch a complex item
-			adhoc_data* dat = adhoc_referenceData(va_arg(args, adhoc_data*));
-			adhoc_data* datStr = adhoc_referenceData(adhoc_toString(dat));
+			;adhoc_data* dat = adhoc_referenceData(va_arg(args, adhoc_data*));
+			adhoc_data* datStr = adhoc_referenceData(adhoc_toStringC(dat));
+			adhoc_unreferenceData(dat);
 			printf("%s", (char*)adhoc_getData(datStr));
 			adhoc_unreferenceData(datStr);
-			adhoc_unreferenceData(dat);
 			break;
 		default:
 			// Handle other cases
 			va_arg(args, void*);
 			break;
 		}
+		printf("%s", buf+2);
 		format = prcnt;
 	}
 

@@ -86,10 +86,16 @@ int adhoc_countS(float d);
 // Returns the count of mapped items in one complex argument's data array
 int adhoc_countC(adhoc_data* d);
 
+// Convert any simple datatype to a wrapped string
+adhoc_data* adhoc_toStringS(adhoc_dataType t, float d);
+
 // Convert any wrapped datatype to a wrapped string
-adhoc_data* adhoc_toString(adhoc_data* d);
+adhoc_data* adhoc_toStringC(adhoc_data* d);
 
 // Format-print arguments
 void adhoc_print(char* format, ...);
+
+// Propt for type-verified input for a variable
+void adhoc_prompt(adhoc_dataType t, void* v);
 
 #endif

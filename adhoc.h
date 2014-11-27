@@ -150,8 +150,10 @@ void adhoc_determineType(ASTnode* n, int d, char* errBuf){
 				n->dataType = TYPE_INT;
 			}else if(!strcmp(n->name, "adhoc_toString")){
 				n->dataType = TYPE_STRNG;
-			}else if(!strcmp(n->name, "adhoc_print")){
+			}else if(!strncmp(n->name, "adhoc_print", 11)){
 				n->dataType = TYPE_VOID;
+			}else if(!strcmp(n->name, "adhoc_prompt")){
+				n->dataType = TYPE_BOOL;
 			}
 		}
 		break;

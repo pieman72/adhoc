@@ -369,8 +369,28 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 				if(isComplex) fprintf(outFile, "adhoc_countC(");
 				else fprintf(outFile, "adhoc_countS(");
 
+			// toString - prompt for a value
+			}else if(!strcmp(n->name, "adhoc_toString")){
+				switch(n->children[0]->dataType){
+				case TYPE_VOID:
+					fprintf(outFile, "adhoc_toStringS(DATA_VOID, ");
+					break;
+				case TYPE_BOOL:
+					fprintf(outFile, "adhoc_toStringS(DATA_BOOL, ");
+					break;
+				case TYPE_INT:
+					fprintf(outFile, "adhoc_toStringS(DATA_INT, ");
+					break;
+				case TYPE_FLOAT:
+					fprintf(outFile, "adhoc_toStringS(DATA_FLOAT, ");
+					break;
+				default:
+					fprintf(outFile, "adhoc_toStringC(");
+				}
+
 			// print - Prints arbitrarily many arguments
-			}else if(!strcmp(n->name, "adhoc_print")){
+			}else if(!strncmp(n->name, "adhoc_print", 11)){
+				bool isPrintLn = !strcmp(n->name+11, "ln");
 				fprintf(outFile, "adhoc_print(\"");
 				for(i=0; i<n->countChildren; ++i){
 					switch(n->children[i]->dataType){
@@ -391,12 +411,51 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 							,adhoc_dataType_names[n->children[i]->dataType]
 						);
 					}
+					if(isPrintLn) fprintf(outFile, "\\n");
 				}
 				fprintf(outFile, "\", ");
 
+			// prompt - prompt for a value
+			}else if(!strcmp(n->name, "adhoc_prompt")){
+				if(n->children[0]->nodeType == VARIABLE){
+					fprintf(outFile, "adhoc_prompt(");
+					switch(n->children[0]->dataType){
+					case TYPE_BOOL:
+						fprintf(outFile, "DATA_BOOL, ");
+						break;
+					case TYPE_INT:
+						fprintf(outFile, "DATA_INT, ");
+						break;
+					case TYPE_FLOAT:
+						fprintf(outFile, "DATA_FLOAT, ");
+						break;
+					case TYPE_STRNG:
+						fprintf(outFile, "DATA_STRING, ");
+						break;
+					default:
+						fprintf(outFile, "DATA_VOID, ");
+						adhoc_errorNode = n->children[0];
+						sprintf(
+							errBuf
+							,"Node %d: Prompting for dataType %s is not implemented"
+							,n->children[0]->id
+							,adhoc_nodeType_names[n->children[0]->dataType]
+						);
+					}
+				}else{
+					fprintf(outFile, "DATA_VOID, ");
+					adhoc_errorNode = n->children[0];
+					sprintf(
+						errBuf
+						,"Node %d: Can only prompt for variables. Found %s"
+						,n->children[0]->id
+						,adhoc_nodeType_names[n->children[0]->nodeType]
+					);
+				}
+
 /*
-			//
-			}else if(){
+			//  -
+			}else if(!strcmp(n->name, "adhoc_")){
 
 */
 			}
@@ -1105,7 +1164,7 @@ void lang_c_generate_literal(bool isInit, ASTnode* n, short indent, FILE* outFil
 			case LITERAL_ARRAY:
 			case LITERAL_HASH:
 			case LITERAL_STRCT:
-				fprintf(outFile, "adhoc_referenceData(%s)", n->name);
+				fprintf(outFile, "%s", n->name);
 				break;
 		}
 	}
