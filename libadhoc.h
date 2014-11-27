@@ -98,4 +98,10 @@ void adhoc_print(char* format, ...);
 // Propt for type-verified input for a variable
 void adhoc_prompt(adhoc_dataType t, void* v);
 
+// Append one argument to an existing string
+void adhoc_append_to_string(char* format, adhoc_data* s, ...);
+
+// Concatenate arbitrary arguments into one string
+adhoc_data* adhoc_concat(char* format, ...);
+
 #endif

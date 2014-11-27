@@ -224,6 +224,7 @@ adhoc_data* adhoc_getCArrayData(adhoc_data* arr, int i){
 //    Library API Functionss    //
 //------------------------------//
 
+//-- GENERAL --//
 // Returns the type (as an integer 0-9) of one complex argument
 adhoc_dataType adhoc_type(adhoc_data* d){
 	return d->dataType;
@@ -283,13 +284,9 @@ adhoc_data* adhoc_toStringC(adhoc_data* d){
 		snprintf(buf, size, "%f", *((float*)d->data)); break;
 	// Unwrap strings
 	case DATA_STRING:;
-		len = 0;
-		buf[len++] = '"';
-		len += d->sizeData-1;
-		if(size<len+2) buf = realloc(buf, size=len+2);
-		memcpy(buf+1, d->data, len-1);
-		buf[len++] = '"';
-		buf[len] = '\0';
+		len = d->sizeData;
+		if(size<len) buf = realloc(buf, size=len);
+		memcpy(buf, d->data, len);
 		break;
 	// Handle arrays
 	case DATA_ARRAY:
@@ -372,6 +369,7 @@ adhoc_data* adhoc_toStringC(adhoc_data* d){
 	return ret;
 }
 
+//-- I/O --//
 // Format-print arguments
 void adhoc_print(char* format, ...){
 	// Initialize arguments
@@ -395,6 +393,10 @@ void adhoc_print(char* format, ...){
 
 		// Print the next argument
 		switch(buf[1]){
+		case 'b':
+			// Fetch a boolean primative
+			printf("%s", va_arg(args, int) ? "true" : "false");
+			break;
 		case 'd':
 			// Fetch an integer primative
 			printf("%d", va_arg(args, int));
@@ -428,4 +430,142 @@ void adhoc_print(char* format, ...){
 
 	// End the argument lists
 	va_end(args);
+}
+
+//-- STRINGS --//
+// Append one argument to an existing string
+void adhoc_append_to_string(char* format, adhoc_data* s, ...){
+	// Initialize arguments
+	adhoc_data* str = NULL;
+	int len;
+	char buf[20];
+	va_list args;
+	va_start(args, s);
+
+	// Switch based on the argument type
+	switch(format[1]){
+	case 'b':
+		// Fetch a boolean primative
+		str = adhoc_referenceData(adhoc_createString(
+			va_arg(args, int) ? "true" : "false")
+		);
+		break;
+	case 'd':
+		// Fetch an integer primative
+		snprintf(buf, 20, "%d", va_arg(args, int));
+		str = adhoc_referenceData(adhoc_createString(buf));
+		break;
+	case 'f':
+		// Fetch a float primative
+		snprintf(buf, 20, "%f", va_arg(args, double));
+		str = adhoc_referenceData(adhoc_createString(buf));
+		break;
+	case 's':
+		// Fetch a string
+		str = adhoc_referenceData(va_arg(args, adhoc_data*));
+		break;
+	case '_':
+		// Fetch a complex item
+		;adhoc_data* dat = adhoc_referenceData(va_arg(args, adhoc_data*));
+		str = adhoc_referenceData(adhoc_toStringC(dat));
+		adhoc_unreferenceData(dat);
+		break;
+	default:
+		// Handle other cases
+		va_arg(args, void*);
+		break;
+	}
+
+	// Append str to s
+	len = s->sizeData-1 + str->sizeData;
+	s->data = realloc(s->data, len);
+	memcpy(s->data+s->sizeData-1, str->data, str->sizeData);
+	s->sizeData = len;
+	adhoc_unreferenceData(str);
+
+	// End the argument lists
+	va_end(args);
+}
+
+// Concatenate arbitrary arguments into one string
+adhoc_data* adhoc_concat(char* format, ...){
+	// Initialize arguments
+	adhoc_data* str = adhoc_createString("");
+	adhoc_data* newItem = NULL;
+	int len = 1,
+		newLen = 1,
+		newSize = 1;
+	bool end;
+	char* prcnt, buf[10];
+	va_list args;
+	va_start(args, format);
+
+	// Iterate through the format string
+	end = !(*format);
+	while(!end){
+		// Find the next format
+		prcnt = strchr(format+1, '%');
+		if(prcnt){
+			strncpy(buf, format, prcnt-format);
+			buf[prcnt-format] = 0;
+		}else{
+			strcpy(buf, format);
+			end = true;
+		}
+
+		// Stringify the next argument
+		switch(buf[1]){
+		case 'b':
+			// Fetch a boolean primative
+			newItem = adhoc_referenceData(adhoc_createString(
+				va_arg(args, int) ? "true" : "false"
+			));
+			break;
+		case 'd':
+			// Fetch an integer primative
+			newItem = adhoc_referenceData(adhoc_toStringS(DATA_INT,
+				va_arg(args, int)
+			));
+			break;
+		case 'f':
+			// Fetch a float primative
+			newItem = adhoc_referenceData(adhoc_toStringS(DATA_FLOAT,
+				va_arg(args, double)
+			));
+			break;
+		case 's':
+			// Fetch a string
+			newItem = adhoc_referenceData(va_arg(args, adhoc_data*));
+			break;
+		case '_':
+			// Fetch a complex item
+			;adhoc_data* dat = adhoc_referenceData(va_arg(args, adhoc_data*));
+			newItem = adhoc_referenceData(adhoc_toStringC(dat));
+			adhoc_unreferenceData(dat);
+			break;
+		default:
+			// Handle other cases
+			va_arg(args, void*);
+			break;
+		}
+
+		// Copy into the output string
+		newLen += newItem->sizeData-1;
+		while(newSize < newLen) newSize <<= 1;
+		if(newSize > str->sizeData)
+			str->data = realloc(str->data, (str->sizeData=newSize));
+		memcpy((char*)str->data+len-1, (char*)newItem->data, newLen-len+1);
+		len = newLen;
+		adhoc_unreferenceData(newItem);
+
+		// Advance the format pointer
+		format = prcnt;
+	}
+
+	// End the argument lists
+	va_end(args);
+
+	// Return the string with all the concatenations
+	str->data = realloc(str->data, newLen);
+	return str;
 }

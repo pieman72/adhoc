@@ -394,7 +394,7 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 				fprintf(outFile, "adhoc_print(\"");
 				for(i=0; i<n->countChildren; ++i){
 					switch(n->children[i]->dataType){
-					case TYPE_BOOL: fprintf(outFile, "%%d"); break;
+					case TYPE_BOOL: fprintf(outFile, "%%b"); break;
 					case TYPE_INT: fprintf(outFile, "%%d"); break;
 					case TYPE_FLOAT: fprintf(outFile, "%%f"); break;
 					case TYPE_STRNG: fprintf(outFile, "%%s"); break;
@@ -453,11 +453,71 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 					);
 				}
 
-/*
-			//  -
-			}else if(!strcmp(n->name, "adhoc_")){
+			// append to string - string extends first arg with second
+			}else if(!strcmp(n->name, "adhoc_append_to_string")){
+				if(n->children[0]->dataType != TYPE_STRNG){
+					adhoc_errorNode = n->children[0];
+					sprintf(
+						errBuf
+						,"Node %d: First parameter to 'append to string' must be a string"
+						,n->children[1]->id
+					);
+				}
+				fprintf(outFile, "adhoc_append_to_string(\"");
+				switch(n->children[1]->dataType){
+				case TYPE_BOOL: fprintf(outFile, "%%b"); break;
+				case TYPE_INT: fprintf(outFile, "%%d"); break;
+				case TYPE_FLOAT: fprintf(outFile, "%%f"); break;
+				case TYPE_STRNG: fprintf(outFile, "%%s"); break;
+				case TYPE_ARRAY:
+				case TYPE_HASH:
+				case TYPE_STRCT:
+					fprintf(outFile, "%%_"); break;
+				default:
+					adhoc_errorNode = n->children[1];
+					sprintf(
+						errBuf
+						,"Node %d: Datatype cannot be appended to string: %s"
+						,n->children[1]->id
+						,adhoc_dataType_names[n->children[1]->dataType]
+					);
+				}
+				fprintf(outFile, "\", ");
 
-*/
+			// concat - converts each argument to a string then joins them all
+			}else if(!strcmp(n->name, "adhoc_concat")){
+				fprintf(outFile, "adhoc_concat(\"");
+				for(i=0; i<n->countChildren; ++i){
+					switch(n->children[i]->dataType){
+					case TYPE_BOOL: fprintf(outFile, "%%b"); break;
+					case TYPE_INT: fprintf(outFile, "%%d"); break;
+					case TYPE_FLOAT: fprintf(outFile, "%%f"); break;
+					case TYPE_STRNG: fprintf(outFile, "%%s"); break;
+					case TYPE_ARRAY:
+					case TYPE_HASH:
+					case TYPE_STRCT:
+						fprintf(outFile, "%%_"); break;
+					default:
+						adhoc_errorNode = n->children[i];
+						sprintf(
+							errBuf
+							,"Node %d: Datatype cannot be concatenated: %s"
+							,n->children[i]->id
+							,adhoc_dataType_names[n->children[i]->dataType]
+						);
+					}
+				}
+				fprintf(outFile, "\", ");
+
+			// substring - returns a copy from a string from an index of length
+			}else if(!strcmp(n->name, "adhoc_substring")){
+
+			// splice string - patches first with second from index of length
+			}else if(!strcmp(n->name, "adhoc_splice_string")){
+
+			// find in string - gets first instance in string of substring
+			}else if(!strcmp(n->name, "adhoc_find_in_string")){
+
 			}
 
 		// If not a library function, then make a regular call

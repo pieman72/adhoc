@@ -136,25 +136,9 @@ void adhoc_determineType(ASTnode* n, int d, char* errBuf){
 		break;
 
 	case ACTION_CALL:
-		n->dataType = TYPE_VOID;
-		n->childDataType = TYPE_VOID;
 		if(n->reference){
 			n->dataType = n->reference->dataType;
 			n->childDataType = n->reference->childDataType;
-		}else if(!strcmp(n->package, "System")){
-			if(!strcmp(n->name, "adhoc_type")){
-				n->dataType = TYPE_INT;
-			}else if(!strcmp(n->name, "adhoc_size")){
-				n->dataType = TYPE_INT;
-			}else if(!strcmp(n->name, "adhoc_count")){
-				n->dataType = TYPE_INT;
-			}else if(!strcmp(n->name, "adhoc_toString")){
-				n->dataType = TYPE_STRNG;
-			}else if(!strncmp(n->name, "adhoc_print", 11)){
-				n->dataType = TYPE_VOID;
-			}else if(!strcmp(n->name, "adhoc_prompt")){
-				n->dataType = TYPE_BOOL;
-			}
 		}
 		break;
 
