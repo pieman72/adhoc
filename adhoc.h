@@ -534,6 +534,10 @@ void adhoc_insertNode(ASTnode* n){
 	ASTnode* parent;
 	parent = (ASTnode*) hashMap_retrieve(nodeMap, adhoc_hashParent((void*)n));
 	n->parent = parent;
+	if(!parent){
+		ASTroot = n;
+		return;
+	}
 
 	// If the parent has no children, allocate the children array
 	if(!parent->countChildren){

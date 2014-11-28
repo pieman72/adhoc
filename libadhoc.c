@@ -619,8 +619,9 @@ adhoc_data* adhoc_splice_string(adhoc_data* baseString, adhoc_data* replacement,
 
 // Finds the first occurrence of targetsString in baseString
 int adhoc_find_in_string(adhoc_data* baseString, adhoc_data* targetsString){
-	return strstr((char*)baseString->data, (char*)targetsString->data)
-		- (char*)baseString->data;
+	char* loc = strstr((char*)baseString->data, (char*)targetsString->data);
+	if(!loc) return -1;
+	return loc - (char*)baseString->data;
 }
 
 //-- ARRAYS --//
