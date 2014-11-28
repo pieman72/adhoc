@@ -113,4 +113,7 @@ adhoc_data* adhoc_splice_string(adhoc_data* baseString, adhoc_data* replacement,
 // Finds the first occurrence of targetsString in baseString
 int adhoc_find_in_string(adhoc_data* baseString, adhoc_data* targetsString);
 
+// Append one item to an existing array
+void adhoc_append_to_array(char* format, adhoc_data* baseArray, ...);
+
 #endif

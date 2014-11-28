@@ -87,7 +87,7 @@ void adhoc_assignArrayData(adhoc_data* arr, int i, void* item, float primVal){
 			s = sizeof(adhoc_data*);
 		}
 		arr->data = realloc(arr->data, s*newSize);
-		memset(arr->data+arr->sizeData, 0, (newSize - arr->sizeData)*s);
+		memset(arr->data+(arr->sizeData*s), 0, (newSize - arr->sizeData)*s);
 		int oldMapSize = (arr->sizeData-1)/DATA_MAP_BIT_FIELD_SIZE+1;
 		int newMapSize = (newSize-1)/DATA_MAP_BIT_FIELD_SIZE+1;
 		arr->mappedData = realloc(arr->mappedData, newMapSize);
@@ -621,4 +621,54 @@ adhoc_data* adhoc_splice_string(adhoc_data* baseString, adhoc_data* replacement,
 int adhoc_find_in_string(adhoc_data* baseString, adhoc_data* targetsString){
 	return strstr((char*)baseString->data, (char*)targetsString->data)
 		- (char*)baseString->data;
+}
+
+//-- ARRAYS --//
+// Append one item to an existing array
+void adhoc_append_to_array(char* format, adhoc_data* baseArray, ...){
+	adhoc_referenceData(baseArray);
+
+	// Initialize arguments
+	va_list args;
+	va_start(args, baseArray);
+
+	// Extend find the highest unused index
+
+	int pos = baseArray->sizeData-1;
+	while(!(baseArray->mappedData[pos/DATA_MAP_BIT_FIELD_SIZE]
+			& (1<<(pos%DATA_MAP_BIT_FIELD_SIZE))
+		)){
+		--pos;
+	}
+	++pos;
+
+	// Switch based on the argument type
+	switch(format[1]){
+	case 'b':
+		// Fetch a boolean primative
+		adhoc_assignArrayData(baseArray, pos, NULL, va_arg(args, int));
+		break;
+	case 'd':
+		// Fetch an integer primative
+		adhoc_assignArrayData(baseArray, pos, NULL, va_arg(args, int));
+		break;
+	case 'f':
+		// Fetch a float primative
+		adhoc_assignArrayData(baseArray, pos, NULL, va_arg(args, double));
+		break;
+	case 's':
+	case '_':
+		// Fetch a string or other complex item
+		adhoc_assignArrayData(baseArray, pos, va_arg(args, adhoc_data*), 0);
+		break;
+	default:
+		// Handle other cases
+		va_arg(args, void*);
+		break;
+	}
+
+	// End the argument lists
+	va_end(args);
+
+	adhoc_unreferenceData(baseArray);
 }

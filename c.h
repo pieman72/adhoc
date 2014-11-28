@@ -392,8 +392,8 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 			}else if(!strncmp(n->name, "adhoc_print", 11)){
 				bool isPrintLn = !strcmp(n->name+11, "ln");
 				fprintf(outFile, "adhoc_print(\"");
-				for(i=0; i<n->countChildren; ++i){
-					switch(n->children[i]->dataType){
+				for(j=0; j<n->countChildren; ++j){
+					switch(n->children[j]->dataType){
 					case TYPE_BOOL: fprintf(outFile, "%%b"); break;
 					case TYPE_INT: fprintf(outFile, "%%d"); break;
 					case TYPE_FLOAT: fprintf(outFile, "%%f"); break;
@@ -403,12 +403,12 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 					case TYPE_STRCT:
 						fprintf(outFile, "%%_"); break;
 					default:
-						adhoc_errorNode = n->children[i];
+						adhoc_errorNode = n->children[j];
 						sprintf(
 							errBuf
 							,"Node %d: Datatype not printable: %s"
-							,n->children[i]->id
-							,adhoc_dataType_names[n->children[i]->dataType]
+							,n->children[j]->id
+							,adhoc_dataType_names[n->children[j]->dataType]
 						);
 					}
 					if(isPrintLn) fprintf(outFile, "\\n");
@@ -487,8 +487,8 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 			// concat - converts each argument to a string then joins them all
 			}else if(!strcmp(n->name, "adhoc_concat")){
 				fprintf(outFile, "adhoc_concat(\"");
-				for(i=0; i<n->countChildren; ++i){
-					switch(n->children[i]->dataType){
+				for(j=0; j<n->countChildren; ++j){
+					switch(n->children[j]->dataType){
 					case TYPE_BOOL: fprintf(outFile, "%%b"); break;
 					case TYPE_INT: fprintf(outFile, "%%d"); break;
 					case TYPE_FLOAT: fprintf(outFile, "%%f"); break;
@@ -498,12 +498,12 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 					case TYPE_STRCT:
 						fprintf(outFile, "%%_"); break;
 					default:
-						adhoc_errorNode = n->children[i];
+						adhoc_errorNode = n->children[j];
 						sprintf(
 							errBuf
 							,"Node %d: Datatype cannot be concatenated: %s"
-							,n->children[i]->id
-							,adhoc_dataType_names[n->children[i]->dataType]
+							,n->children[j]->id
+							,adhoc_dataType_names[n->children[j]->dataType]
 						);
 					}
 				}
@@ -592,6 +592,47 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 					);
 				}
 				fprintf(outFile, "%s(", n->name);
+
+			// append to array - pushes second arg onto the end of the first
+			}else if(!strcmp(n->name, "adhoc_append_to_array")){
+				if(n->children[0]->dataType != TYPE_ARRAY){
+					adhoc_errorNode = n->children[0];
+					sprintf(
+						errBuf
+						,"Node %d: First parameter to 'append to array' must be an array"
+						,n->children[0]->id
+					);
+				}
+				if(n->children[1]->dataType != n->children[0]->childDataType
+						&& n->children[0]->childDataType != TYPE_MIXED
+					){
+					adhoc_errorNode = n;
+					sprintf(
+						errBuf
+						,"Node %d: Mismatch between array dataType and type of item"
+						,n->id
+					);
+				}
+				fprintf(outFile, "adhoc_append_to_array(\"");
+				switch(n->children[1]->dataType){
+				case TYPE_BOOL: fprintf(outFile, "%%b"); break;
+				case TYPE_INT: fprintf(outFile, "%%d"); break;
+				case TYPE_FLOAT: fprintf(outFile, "%%f"); break;
+				case TYPE_STRNG: fprintf(outFile, "%%s"); break;
+				case TYPE_ARRAY:
+				case TYPE_HASH:
+				case TYPE_STRCT:
+					fprintf(outFile, "%%_"); break;
+				default:
+					adhoc_errorNode = n->children[1];
+					sprintf(
+						errBuf
+						,"Node %d: Datatype cannot be appended to an array: %s"
+						,n->children[1]->id
+						,adhoc_dataType_names[n->children[1]->dataType]
+					);
+				}
+				fprintf(outFile, "\", ");
 
 			// Unrecognized library function!
 			}else{
