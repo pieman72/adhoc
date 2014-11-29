@@ -959,6 +959,16 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 			|| n->children[0]->nodeType == ASSIGNMENT
 			|| n->children[0]->nodeType == VARIABLE
 		);
+		bool retVarComplex = false;
+		if(retVar){
+			switch(n->children[0]->dataType){
+			case TYPE_STRNG:
+			case TYPE_ARRAY:
+			case TYPE_HASH:
+			case TYPE_STRCT:
+				retVarComplex = true;
+			}
+		}
 
 		if(isInit){
 			// During initialization, add a return variable to scope if needed
@@ -989,15 +999,7 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 
 			// Generate the children
 			for(i=0; i<n->countChildren; ++i){
-				isComplex = false;
-				switch(n->scope->scopeVars[i]->dataType){
-				case TYPE_STRNG:
-				case TYPE_ARRAY:
-				case TYPE_HASH:
-				case TYPE_STRCT:
-					isComplex = true;
-				}
-				if(isComplex) fprintf(outFile, "adhoc_referenceData(");
+				if(retVarComplex) fprintf(outFile, "adhoc_referenceData(");
 				lang_c_generate(
 					false
 					,n->children[i]
@@ -1006,7 +1008,7 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 					,nodes
 					,errBuf
 				);
-				if(isComplex) fprintf(outFile, ")");
+				if(retVarComplex) fprintf(outFile, ")");
 			}
 
 			// Close return var assignment
@@ -1056,7 +1058,7 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		}
 
 		// Print the actual return
-		if(retVar){
+		if(retVarComplex){
 			lang_c_indent(indent, outFile);
 			fprintf(outFile, "--%s->refs;\n", n->name);
 		}
@@ -1064,15 +1066,7 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		fprintf(outFile, "return");
 		if(retVar) fprintf(outFile, " %s", n->name);
 		else if(n->countChildren){
-			isComplex = false;
-			switch(n->children[0]->dataType){
-			case TYPE_STRNG:
-			case TYPE_ARRAY:
-			case TYPE_HASH:
-			case TYPE_STRCT:
-				isComplex = true;
-			}
-			if(isComplex) fprintf(outFile, " %s", n->children[0]->name);
+			if(retVarComplex) fprintf(outFile, " %s", n->children[0]->name);
 			else lang_c_generate(
 				false
 				,n->children[0]
