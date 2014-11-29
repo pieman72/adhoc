@@ -176,6 +176,7 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 					,n->children[k]->name
 				);
 			}
+			if(k) fprintf(outFile, "\n");
 
 			// Print declarations for any scope vars
 			char* dt;
@@ -956,6 +957,7 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 			n->children[0]->nodeType == ACTION
 			|| n->children[0]->nodeType == OPERATOR
 			|| n->children[0]->nodeType == ASSIGNMENT
+			|| n->children[0]->nodeType == VARIABLE
 		);
 
 		if(isInit){
@@ -987,6 +989,15 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 
 			// Generate the children
 			for(i=0; i<n->countChildren; ++i){
+				isComplex = false;
+				switch(n->scope->scopeVars[i]->dataType){
+				case TYPE_STRNG:
+				case TYPE_ARRAY:
+				case TYPE_HASH:
+				case TYPE_STRCT:
+					isComplex = true;
+				}
+				if(isComplex) fprintf(outFile, "adhoc_referenceData(");
 				lang_c_generate(
 					false
 					,n->children[i]
@@ -995,6 +1006,7 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 					,nodes
 					,errBuf
 				);
+				if(isComplex) fprintf(outFile, ")");
 			}
 
 			// Close return var assignment
@@ -1023,16 +1035,18 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 			}
 			if(!isComplex) continue;
 
-			// Reduce the reference count
+			// Leave a note
 			if(!derefCommented){
 				fprintf(outFile, "\n");
 				lang_c_indent(indent, outFile);
 				fprintf(
 					outFile
-					,"// Reduce references on complex scope variables\n"
+					,"// Reduce references on complex scope variables and return\n"
 				);
 				derefCommented = true;
 			}
+
+			// Reduce the reference count
 			lang_c_indent(indent, outFile);
 			fprintf(
 				outFile
@@ -1042,9 +1056,13 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		}
 
 		// Print the actual return
+		if(retVar){
+			lang_c_indent(indent, outFile);
+			fprintf(outFile, "--%s->refs;\n", n->name);
+		}
 		lang_c_indent(indent, outFile);
-		fprintf(outFile, "return ");
-		if(retVar) fprintf(outFile, "%s", n->name);
+		fprintf(outFile, "return");
+		if(retVar) fprintf(outFile, " %s", n->name);
 		else if(n->countChildren){
 			isComplex = false;
 			switch(n->children[0]->dataType){
@@ -1054,7 +1072,7 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 			case TYPE_STRCT:
 				isComplex = true;
 			}
-			if(isComplex) fprintf(outFile, "%s", n->children[0]->name);
+			if(isComplex) fprintf(outFile, " %s", n->children[0]->name);
 			else lang_c_generate(
 				false
 				,n->children[0]
@@ -1072,13 +1090,15 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 // Generation rules for operators
 void lang_c_generate_operator(bool isInit, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i;
-	bool isComplex;
+	bool isComplex, parens;
 	if(isInit){
 		for(i=0; i<n->countChildren; ++i){
 			lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
 		}
 	}else{
+		parens = needsParens(n);
 		if(n->childType == STATEMENT) lang_c_indent(indent, outFile);
+		if(parens) fprintf(outFile, "(");
 		switch(n->which){
 			case OPERATOR_NOT:
 				fprintf(outFile, "%s", adhoc_nodeWhich_names[n->which]);
@@ -1194,6 +1214,7 @@ void lang_c_generate_operator(bool isInit, ASTnode* n, short indent, FILE* outFi
 				lang_c_generate(false, n->children[2], indent+1, outFile, nodes, errBuf);
 				break;
 		}
+		if(parens) fprintf(outFile, ")");
 		if(n->childType == STATEMENT) fprintf(outFile, ";\n");
 	}
 }
@@ -1201,17 +1222,19 @@ void lang_c_generate_operator(bool isInit, ASTnode* n, short indent, FILE* outFi
 // Generation rules for assignments
 void lang_c_generate_assignment(bool isInit, ASTnode* n, short indent, FILE* outFile, hashMap* nodes, char* errBuf){
 	int i;
-	bool isComplex;
+	bool isComplex, parens;
 	if(isInit){
 		// Initialize the children and pass their types to the assignment and storage
 		for(i=0; i<n->countChildren; ++i){
 			lang_c_initialize(n->children[i], indent, outFile, nodes, errBuf);
 		}
 	}else{
+		parens = needsParens(n);
 		if(n->childType == STATEMENT
 				|| n->childType == IF
 				|| n->childType == ELSE)
 			lang_c_indent(indent, outFile);
+		if(parens) fprintf(outFile, "(");
 		switch(n->which){
 			case ASSIGNMENT_INCPR:
 			case ASSIGNMENT_DECPR:
@@ -1261,6 +1284,7 @@ void lang_c_generate_assignment(bool isInit, ASTnode* n, short indent, FILE* out
 				);
 				break;
 		}
+		if(parens) fprintf(outFile, ")");
 		if(n->childType == STATEMENT
 				|| n->childType == IF
 				|| n->childType == ELSE)
@@ -1316,7 +1340,7 @@ void lang_c_generate_variable(bool isInit, bool defin, ASTnode* n, short indent,
 				sprintf(
 					errBuf
 					,"%s"
-					,"Variable used before being assigned a value"
+					,"Variable used but type could not be determined"
 				);
 			}
 			fprintf(outFile, "%s", n->name);

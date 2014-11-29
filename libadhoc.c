@@ -435,6 +435,8 @@ void adhoc_print(char* format, ...){
 //-- STRINGS --//
 // Append one argument to an existing string
 void adhoc_append_to_string(char* format, adhoc_data* baseString, ...){
+	adhoc_referenceData(baseString);
+
 	// Initialize arguments
 	adhoc_data* str = NULL;
 	int len;
@@ -482,6 +484,7 @@ void adhoc_append_to_string(char* format, adhoc_data* baseString, ...){
 	memcpy(baseString->data+baseString->sizeData-1, str->data, str->sizeData);
 	baseString->sizeData = len;
 	adhoc_unreferenceData(str);
+	adhoc_unreferenceData(baseString);
 
 	// End the argument lists
 	va_end(args);
@@ -572,20 +575,31 @@ adhoc_data* adhoc_concat(char* format, ...){
 
 // Copy from s starting at start and running for length
 adhoc_data* adhoc_substring(adhoc_data* baseString, int index, int length){
+	adhoc_referenceData(baseString);
 	++length;
-	if(index>=baseString->sizeData || length<1) return adhoc_createString("");
+	if(index>=baseString->sizeData || length<1){
+		adhoc_unreferenceData(baseString);
+		return adhoc_createString("");
+	}
 	if(index+length >= baseString->sizeData)
 		length = baseString->sizeData - index;
 	char* data = malloc(length);
 	memcpy(data, baseString->data+index, length);
 	data[length-1] = '\0';
+	adhoc_unreferenceData(baseString);
 	return adhoc_createData(DATA_STRING, data, DATA_VOID, length);
 }
 
 // Patch the replacement over the base string at index return what is replaced
 adhoc_data* adhoc_splice_string(adhoc_data* baseString, adhoc_data* replacement, int index, int length){
+	adhoc_referenceData(baseString);
+	adhoc_referenceData(replacement);
 	adhoc_data* ret = adhoc_substring(baseString, index, length);
-	if(index >= baseString->sizeData) return ret;
+	if(index >= baseString->sizeData){
+		adhoc_unreferenceData(baseString);
+		adhoc_unreferenceData(replacement);
+		return ret;
+	}
 	int newLen = baseString->sizeData - ret->sizeData + replacement->sizeData;
 	int carryOverLen = (index+length < baseString->sizeData-1)
 		? baseString->sizeData-1 - (index+length)
@@ -614,14 +628,21 @@ adhoc_data* adhoc_splice_string(adhoc_data* baseString, adhoc_data* replacement,
 	baseString->sizeData = newLen;
 	baseString->data = realloc(baseString->data, newLen);
 	((char*)(baseString->data))[newLen-1] = '\0';
+	adhoc_unreferenceData(baseString);
+	adhoc_unreferenceData(replacement);
 	return ret;
 }
 
 // Finds the first occurrence of targetsString in baseString
 int adhoc_find_in_string(adhoc_data* baseString, adhoc_data* targetsString){
+	adhoc_referenceData(baseString);
+	adhoc_referenceData(targetsString);
+	int ret = -1;
 	char* loc = strstr((char*)baseString->data, (char*)targetsString->data);
-	if(!loc) return -1;
-	return loc - (char*)baseString->data;
+	if(loc) ret = loc - (char*)baseString->data;
+	adhoc_unreferenceData(baseString);
+	adhoc_unreferenceData(targetsString);
+	return ret;
 }
 
 //-- ARRAYS --//
@@ -635,13 +656,16 @@ void adhoc_append_to_array(char* format, adhoc_data* baseArray, ...){
 
 	// Extend find the highest unused index
 
-	int pos = baseArray->sizeData-1;
-	while(!(baseArray->mappedData[pos/DATA_MAP_BIT_FIELD_SIZE]
-			& (1<<(pos%DATA_MAP_BIT_FIELD_SIZE))
-		)){
-		--pos;
+	int pos = 0;
+	if(baseArray->sizeData){
+		pos = baseArray->sizeData-1;
+		while(!(baseArray->mappedData[pos/DATA_MAP_BIT_FIELD_SIZE]
+				& (1<<(pos%DATA_MAP_BIT_FIELD_SIZE))
+			)){
+			--pos;
+		}
+		++pos;
 	}
-	++pos;
 
 	// Switch based on the argument type
 	switch(format[1]){

@@ -217,6 +217,43 @@ const char* adhoc_dataType_defaults[] = {
 	,"NULL"
 };
 
+// Operator precedence
+float operatorPrecedence[] = {
+	0,0,0,0,0,0,0,0,0,0,0,0 // Offsets for non-operators/non-assignment
+	,6.5 // OPERATOR_PLUS
+	,6 // OPERATOR_MINUS
+	,5.5 // OPERATOR_TIMES
+	,5 // OPERATOR_DIVBY
+	,5 // OPERATOR_MOD
+	,4 // OPERATOR_EXP
+	,14 // OPERATOR_OR
+	,13 // OPERATOR_AND
+	,3 // OPERATOR_NOT
+	,9 // OPERATOR_EQUIV
+	,8 // OPERATOR_GRTTN
+	,8 // OPERATOR_LESTN
+	,8 // OPERATOR_GRTEQ
+	,8 // OPERATOR_LESEQ
+	,9 // OPERATOR_NOTEQ
+	,2 // OPERATOR_ARIND
+	,15 // OPERATOR_TRNIF
+	,3 // ASSIGNMENT_INCPR
+	,2 // ASSIGNMENT_INCPS
+	,3 // ASSIGNMENT_DECPR
+	,2 // ASSIGNMENT_DECPS
+	,3 // ASSIGNMENT_NEGPR
+	,2 // ASSIGNMENT_NEGPS
+	,15 // ASSIGNMENT_EQUAL
+	,15 // ASSIGNMENT_PLUS
+	,15 // ASSIGNMENT_MINUS
+	,15 // ASSIGNMENT_TIMES
+	,15 // ASSIGNMENT_DIVBY
+	,15 // ASSIGNMENT_MOD
+	,15 // ASSIGNMENT_EXP
+	,15 // ASSIGNMENT_OR
+	,15 // ASSIGNMENT_AND
+};
+
 // An abstract syntax tree node for use during parsing
 typedef struct ASTnode {
 	int id;
@@ -359,6 +396,43 @@ dataType adhoc_resolveTypes(dataType a, dataType b){
 
 	// Handle casts
 	return a;
+}
+
+// Return true if the node needs to generate parentheses under its parent
+bool needsParens(ASTnode* n){
+	switch(n->nodeType){
+	// If this node is not an operator or assignment expression, then no parens
+	case TYPE_NULL:
+	case ACTION:
+	case GROUP:
+	case CONTROL:
+	case VARIABLE:
+	case LITERAL:
+		return false;
+
+	// Parens for any assignment child of another assignment or operator
+	case ASSIGNMENT:
+		if(!n->parent) return false;
+		switch(n->parent->nodeType){
+		case OPERATOR:
+		case ASSIGNMENT:
+			return true;
+		default:
+			return false;
+		}
+
+	// Operators have orders of precedence under another operator or assignment
+	case OPERATOR:
+		if(!n->parent) return false;
+		switch(n->parent->nodeType){
+		case OPERATOR:
+		case ASSIGNMENT:
+			return operatorPrecedence[n->which]
+				> operatorPrecedence[n->parent->which];
+		default:
+			return false;
+		}
+	}
 }
 
 // Find the scope where a variable name v was first defined above scope s
