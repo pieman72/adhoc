@@ -237,7 +237,10 @@ int adhoc_sizeS(float item){
 
 // Returns the size (in bytes) of one complex argument's data array
 int adhoc_sizeC(adhoc_data* item){
-	return item->sizeData - (item->type==DATA_STRING?1:0);
+	adhoc_referenceData(item);
+	int ret = item->sizeData - (item->type==DATA_STRING?1:0);
+	adhoc_unreferenceData(item);
+	return ret;
 }
 
 // Returns the count of items in one simple argument (always 1)

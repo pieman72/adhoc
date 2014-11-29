@@ -1067,14 +1067,17 @@ void lang_c_generate_control(bool isInit, ASTnode* n, short indent, FILE* outFil
 		if(retVar) fprintf(outFile, " %s", n->name);
 		else if(n->countChildren){
 			if(retVarComplex) fprintf(outFile, " %s", n->children[0]->name);
-			else lang_c_generate(
-				false
-				,n->children[0]
-				,0
-				,outFile
-				,nodes
-				,errBuf
-			);
+			else{
+				fprintf(outFile, " ");
+				lang_c_generate(
+					false
+					,n->children[0]
+					,0
+					,outFile
+					,nodes
+					,errBuf
+				);
+			}
 		}
 		fprintf(outFile, ";\n");
 		break;
