@@ -187,9 +187,9 @@ void* adhoc_getData(adhoc_data* d){
 // Get the simple data at a particular index of an array
 void* adhoc_getSArrayData(adhoc_data* arr, int i){
 	// TODO: Throw warning instead of returning 0
-	// If the index is beyond the bounds of the array, return 0
+	// If the index is beyond the bounds of the array, return NULL
 	if(i >= arr->sizeData) return NULL;
-	// If the field is unset, return 0
+	// If the field is unset, return NULL
 	if(!(arr->mappedData[i/DATA_MAP_BIT_FIELD_SIZE]
 			& (1<<(i%DATA_MAP_BIT_FIELD_SIZE)))
 		) return NULL;
@@ -649,6 +649,15 @@ int adhoc_find_in_string(adhoc_data* baseString, adhoc_data* targetsString){
 }
 
 //-- ARRAYS --//
+// Check whether arr[i] has been set
+bool adhoc_isset_array(adhoc_data* arr, int i){
+	// If the index is beyond the bounds of the array, return false
+	if(i >= arr->sizeData) return false;
+	// Return whether the field is set
+	return (arr->mappedData[i/DATA_MAP_BIT_FIELD_SIZE]
+		& (1<<(i%DATA_MAP_BIT_FIELD_SIZE)));
+}
+
 // Append one item to an existing array
 void adhoc_append_to_array(char* format, adhoc_data* baseArray, ...){
 	adhoc_referenceData(baseArray);

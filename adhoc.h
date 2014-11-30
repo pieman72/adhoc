@@ -554,6 +554,10 @@ void adhoc_insertNode(ASTnode* n){
 	// Determine the node's scope
 	if(parent->which==ACTION_DEFIN){
 		adhoc_assignScope(n, parent);
+	}else if(parent->childType == PARAMETER
+			&& parent->parentId
+		){
+		adhoc_assignScope(n, parent->parent->scope);
 	}else if(parent->scope){
 		adhoc_assignScope(n, parent->scope);
 	}

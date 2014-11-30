@@ -319,7 +319,10 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 		}
 
 		// Indent this function call
-		if(n->childType == STATEMENT) lang_c_indent(indent, outFile);
+		if(n->childType == STATEMENT
+				|| n->childType == IF
+				|| n->childType == ELSE
+			) lang_c_indent(indent, outFile);
 
 		// Special handling for library functions
 		if(!strcmp(n->package, "System")){
@@ -589,6 +592,26 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 					sprintf(
 						errBuf
 						,"Node %d: Second parameter to 'find in string' must be an string"
+						,n->children[1]->id
+					);
+				}
+				fprintf(outFile, "%s(", n->name);
+
+			// isset array - checks whether an index is used in an array
+			}else if(!strcmp(n->name, "adhoc_isset_array")){
+				if(n->children[0]->dataType != TYPE_ARRAY){
+					adhoc_errorNode = n->children[0];
+					sprintf(
+						errBuf
+						,"Node %d: First parameter to 'isset array' must be an array"
+						,n->children[0]->id
+					);
+				}
+				if(n->children[1]->dataType != TYPE_INT){
+					adhoc_errorNode = n->children[1];
+					sprintf(
+						errBuf
+						,"Node %d: Array indices must be strings"
 						,n->children[1]->id
 					);
 				}
