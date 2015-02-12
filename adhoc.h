@@ -281,6 +281,23 @@ void adhoc_determineType(ASTnode* n, int d, char* errBuf){
 	}
 }
 
+// A walkable final check for validity items
+void adhoc_finalCheckNode(ASTnode* n, int d, char* errBuf){
+	if(n->nodeType==OPERATOR || n->nodeType==ASSIGNMENT){
+		if(n->countChildren==2
+				&& n->children[0]->nodeType==ASSIGNMENT
+				&& n->children[1]->nodeType==ASSIGNMENT
+				&& !strcmp(
+					n->children[0]->children[0]->name,
+					n->children[1]->children[0]->name
+				)
+			){
+			adhoc_errorNode = n;
+			sprintf(errBuf, "You should be shot for writing this!");
+		}
+	}
+}
+
 // Simple function for hashing other structs
 hashMap_uint adhoc_hashItemLocation(void* i){
 	return hashMap_hashString(((itemLocation*) i)->item);
@@ -594,6 +611,7 @@ void adhoc_validate(char* errBuf){
 
 	// Final check for all node info
 	// TODO
+	adhoc_treeWalk(adhoc_finalCheckNode, ASTroot, 0, errBuf);
 }
 
 // Generate the target language code

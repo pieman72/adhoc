@@ -119,4 +119,10 @@ bool adhoc_isset_array(adhoc_data* arr, int i);
 // Append one item to an existing array
 void adhoc_append_to_array(char* format, adhoc_data* baseArray, ...);
 
+// Find the max value in an array
+void* adhoc_find_max_value(adhoc_data* inputArray);
+
+// Find the index of the max value in an array
+int adhoc_find_max_value_index(adhoc_data* inputArray);
+
 #endif

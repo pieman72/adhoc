@@ -658,14 +658,43 @@ void lang_c_generate_action(bool isInit, bool defin, ASTnode* n, short indent, F
 				}
 				fprintf(outFile, "\", ");
 
+			// find max value - finds the max value in an array
+			}else if(!strcmp(n->name, "adhoc_find_max_value")){
+				if(n->children[0]->dataType != TYPE_ARRAY){
+					adhoc_errorNode = n->children[0];
+					sprintf(
+						errBuf
+						,"Node %d: First parameter to 'find max value' must be an array"
+						,n->children[0]->id
+					);
+				}
+				fprintf(outFile, "*(%s*)%s("
+					,adhoc_dataType_names[n->children[0]->dataType]
+					,n->name
+				);
+
+			// find max value index - finds the index of the max value in an array
+			}else if(!strcmp(n->name, "adhoc_find_max_value_index")){
+				if(n->children[0]->dataType != TYPE_ARRAY){
+					adhoc_errorNode = n->children[0];
+					sprintf(
+						errBuf
+						,"Node %d: First parameter to 'find max value index' must be an array"
+						,n->children[0]->id
+					);
+				}
+				fprintf(outFile, "%s("
+					,n->name
+				);
+
 			// Unrecognized library function!
 			}else{
 				adhoc_errorNode = n;
 				sprintf(
 					errBuf
-					,"Node %d: Datatype cannot be concatenated: %s"
+					,"Node %d: Unrecognized library function: %s"
 					,n->id
-					,adhoc_dataType_names[n->dataType]
+					,n->name
 				);
 			}
 
@@ -1222,9 +1251,19 @@ void lang_c_generate_operator(bool isInit, ASTnode* n, short indent, FILE* outFi
 			case OPERATOR_GRTEQ:
 			case OPERATOR_LESEQ:
 			case OPERATOR_NOTEQ:
-				lang_c_generate(false, n->children[0], indent+1, outFile, nodes, errBuf);
-				fprintf(outFile, " %s ", adhoc_nodeWhich_names[n->which]);
-				lang_c_generate(false, n->children[1], indent+1, outFile, nodes, errBuf);
+				if(n->children[0]->dataType==TYPE_STRNG
+						&& n->children[1]->dataType==TYPE_STRNG
+					){
+					fprintf(outFile, " (strcmp(");
+					lang_c_generate(false, n->children[0], indent+1, outFile, nodes, errBuf);
+					fprintf(outFile, ", ");
+					lang_c_generate(false, n->children[1], indent+1, outFile, nodes, errBuf);
+					fprintf(outFile, ") %s 0) ", adhoc_nodeWhich_names[n->which]);
+				}else{
+					lang_c_generate(false, n->children[0], indent+1, outFile, nodes, errBuf);
+					fprintf(outFile, " %s ", adhoc_nodeWhich_names[n->which]);
+					lang_c_generate(false, n->children[1], indent+1, outFile, nodes, errBuf);
+				}
 				break;
 			case OPERATOR_TRNIF:
 				lang_c_generate(false, n->children[0], indent+1, outFile, nodes, errBuf);

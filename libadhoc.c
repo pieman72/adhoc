@@ -709,3 +709,76 @@ void adhoc_append_to_array(char* format, adhoc_data* baseArray, ...){
 
 	adhoc_unreferenceData(baseArray);
 }
+
+// Find the max value in an array
+void* adhoc_find_max_value(adhoc_data* inputArray){
+	adhoc_referenceData(inputArray);
+
+	int index = adhoc_find_max_value_index(inputArray);
+	void* result = adhoc_getSArrayData(inputArray, index);
+
+	adhoc_unreferenceData(inputArray);
+	return result;
+}
+
+// Find the index of the max value in an array
+int adhoc_find_max_value_index(adhoc_data* inputArray){
+	adhoc_referenceData(inputArray);
+
+	int i, count, bestIndex=-1;
+	bool bestBool = false;
+	int bestInt = 0;
+	float bestFloat = 0;
+	void* tempData;
+	int arrCount = adhoc_countC(inputArray);
+	int arrSize = adhoc_sizeC(inputArray);
+	if(arrCount<1){
+		adhoc_unreferenceData(inputArray);
+		return bestIndex;
+	}
+
+	for(i=0,count=0; i<arrSize&&count<arrCount; ++i){
+		if(!adhoc_isset_array(inputArray, i)) continue;
+		tempData = adhoc_getSArrayData(inputArray, i);
+		if(bestIndex == -1){
+			bestIndex = i;
+			switch(inputArray->dataType){
+			case DATA_BOOL: bestBool = *(bool*)tempData; break;
+			case DATA_INT: bestInt = *(int*)tempData; break;
+			case DATA_FLOAT: bestFloat = *(float*)tempData; break;
+			default:
+				adhoc_unreferenceData(inputArray);
+				return -1;
+			}
+		}
+
+		switch(inputArray->dataType){
+		case DATA_BOOL:
+			;bool tempBool = *(bool*)tempData;
+			if(tempBool && !bestBool){
+				bestBool = true;
+				bestIndex = i;
+			}
+			break;
+		case DATA_INT:
+			;int tempInt = *(int*)tempData;
+			if(tempInt > bestInt){
+				bestInt = tempInt;
+				bestIndex = i;
+			}
+			break;
+		case DATA_FLOAT:
+			;float tempFloat = *(float*)tempData;
+			if(tempFloat > bestFloat){
+				bestFloat = tempFloat;
+				bestIndex = i;
+			}
+			break;
+		default:
+			break;
+		}
+	}
+
+	adhoc_unreferenceData(inputArray);
+	return bestIndex;
+}
